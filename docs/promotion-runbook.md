@@ -13,7 +13,7 @@ Como promover uma skill do `tech-product-template` (privado) para este marketpla
                        │ promoção (manual, só skills maduras)
                        ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Tier 2 — 4-successful-AI-life (público)                │
+│  Tier 2 — nbstack (público)                             │
 │  Distribuição. Só recebe peças prontas para terceiros.  │
 │  Skills agnósticas standalone OU bundles coesos.        │
 └─────────────────────────────────────────────────────────┘
@@ -39,16 +39,16 @@ Necessário porque o `GITHUB_TOKEN` padrão dos workflows só autentica contra o
 ### Passo 2 — Adicionar como secret no marketplace
 
 ```bash
-gh secret set UPSTREAM_TOKEN --repo fernando-bertholdo/4-successful-AI-life
+gh secret set UPSTREAM_TOKEN --repo fernando-bertholdo/nbstack
 # cola o token quando pedir
 ```
 
-Ou via UI: https://github.com/fernando-bertholdo/4-successful-AI-life/settings/secrets/actions → New repository secret → Name: `UPSTREAM_TOKEN`, Value: `github_pat_...`
+Ou via UI: https://github.com/fernando-bertholdo/nbstack/settings/secrets/actions → New repository secret → Name: `UPSTREAM_TOKEN`, Value: `github_pat_...`
 
 ### Passo 3 — Verificar
 
 ```bash
-gh secret list --repo fernando-bertholdo/4-successful-AI-life
+gh secret list --repo fernando-bertholdo/nbstack
 # UPSTREAM_TOKEN deve aparecer
 ```
 
@@ -129,7 +129,7 @@ Se algum destes itens falhar, ela ainda não está pronta para promoção — re
 Anote no calendário 11 meses após criar a PAT (GitHub avisa por email 1 semana antes). Quando expirar:
 
 1. Crie nova PAT seguindo o Passo 1 acima
-2. `gh secret set UPSTREAM_TOKEN --repo fernando-bertholdo/4-successful-AI-life`
+2. `gh secret set UPSTREAM_TOKEN --repo fernando-bertholdo/nbstack`
 3. Delete a PAT antiga em https://github.com/settings/personal-access-tokens
 
 ## Troubleshooting

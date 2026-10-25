@@ -1,18 +1,18 @@
 {
-  "name": "4-successful-ai-life",
+  "name": "nbstack",
   "owner": {
     "name": "Fernando Bertholdo"
   },
   "metadata": {
     "description": "Curated plugins for AI-assisted work: UI/UX excellence, session auto-naming and handoff, prompt engineering, and structured planning.",
-    "version": "0.9.0"
+    "version": "0.10.0"
   },
   "plugins": [
     {
       "name": "ui-excellence",
       "source": "./plugins/ui-excellence",
       "description": "Comprehensive UI/UX skills for web interfaces — 13 skills with triage coordinator spanning visual design, typography, accessibility, usability audits, conversion optimization, microinteractions, and engagement loops.",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.4",
       "license": "MIT",
       "category": "design",
       "keywords": [
@@ -133,7 +133,7 @@
       "name": "multica-ops",
       "source": "./plugins/multica-ops",
       "description": "Companion to the official multica-cli skill, not a replacement: where the binary hides in a desktop-app install, how to reach it from a bridged Cowork/claude.ai session, the shell and JSON shapes the reference does not state, the platform limits, and the constraints of working a board governed by a repository that versions its Multica configuration.",
-      "version": "0.2.11",
+      "version": "0.2.12",
       "license": "MIT",
       "category": "productivity",
       "keywords": [
@@ -153,7 +153,7 @@
       "name": "decisoes",
       "source": "./plugins/decisoes",
       "description": "A Claude Code mod (function-hooks plugin) that collects, per session, the decisions only the session's owner can make — a tool the agent calls plus lines flagged in its text — lets you answer them with buttons in a band and a pane, lists the other cmux sessions waiting on you, and asks a session to land before you close the machine. Texts in Portuguese.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "MIT",
       "category": "productivity",
       "keywords": [

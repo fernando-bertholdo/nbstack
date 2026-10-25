@@ -2,7 +2,7 @@
 
 This marketplace is maintained for personal and project-specific use, so external contributions
 aren't actively solicited — but issues and discussion are welcome on the
-[issue tracker](https://github.com/fernando-bertholdo/4-successful-AI-life/issues).
+[issue tracker](https://github.com/fernando-bertholdo/nbstack/issues).
 
 This document is for **maintainers and the curious**: how the repo is laid out, how plugins get
 here, and where the deeper conventions live. For day-to-day maintenance conventions — the
@@ -14,7 +14,7 @@ here, and where the deeper conventions live. For day-to-day maintenance conventi
 ## Repository structure
 
 ```
-4-successful-AI-life/
+nbstack/
 ├── .claude-plugin/
 │   └── marketplace.json       ← marketplace manifest (catalog source of truth)
 ├── .github/workflows/         ← weekly upstream-sync workflows (vendored plugins)
