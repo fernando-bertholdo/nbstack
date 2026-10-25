@@ -1,12 +1,12 @@
 {
   "name": "decisoes",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Acumula as decisões que só quem usa a sessão pode tomar, deixa responder com botões e leva às outras sessões no cmux que esperam uma decisão.",
   "author": {
     "name": "Fernando Bertholdo",
     "url": "https://github.com/fernando-bertholdo"
   },
-  "repository": "https://github.com/fernando-bertholdo/4-successful-AI-life",
+  "repository": "https://github.com/fernando-bertholdo/nbstack",
   "license": "MIT",
   "keywords": ["decisions", "session", "cmux", "hooks", "mod"],
   "userConfig": {

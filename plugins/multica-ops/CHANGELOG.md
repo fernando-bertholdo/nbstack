@@ -7,6 +7,13 @@ and this plugin adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ---
 
+## [0.2.12] — 2026-10-25
+
+### Changed
+
+- The marketplace is now `nbstack`: the README's install commands and issue link, and `repository`
+  in `plugin.json`, use the new name. No change to the skill.
+
 ## [0.2.11] — 2026-10-03
 
 ### Changed

@@ -2,7 +2,7 @@
 
 **The layer around [Multica](https://multica.ai)'s official CLI skill — the environment, the shapes, the limits, and the governance.**
 
-Version `0.2.11` · 1 skill · native plugin
+Version `0.2.12` · 1 skill · native plugin
 
 ---
 
@@ -31,8 +31,8 @@ It covers `issue search`, the comment read modes, the working-directory restrict
 ## Install
 
 ```
-/plugin marketplace add fernando-bertholdo/4-successful-AI-life
-/plugin install multica-ops@4-successful-ai-life
+/plugin marketplace add fernando-bertholdo/nbstack
+/plugin install multica-ops@nbstack
 /reload-plugins
 ```
 
@@ -62,7 +62,7 @@ bash tests/run-tests.sh    # patch-description.py against a fake CLI; standard l
 
 ## Compatibility
 
-Measured against **Multica CLI v0.4.42**, and against the official skill at its **v1.1.0**. Both move; the skill instructs you to record `multica --version` next to any claim about the surface. If the reference grows to cover something documented here, that overlap is a bug in this plugin — [open an issue](https://github.com/fernando-bertholdo/4-successful-AI-life/issues).
+Measured against **Multica CLI v0.4.42**, and against the official skill at its **v1.1.0**. Both move; the skill instructs you to record `multica --version` next to any claim about the surface. If the reference grows to cover something documented here, that overlap is a bug in this plugin — [open an issue](https://github.com/fernando-bertholdo/nbstack/issues).
 
 ## License
 
