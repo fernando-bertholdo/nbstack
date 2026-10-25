@@ -2,9 +2,9 @@
 
 Comprehensive UI/UX skills for web interfaces — 13 skills (12 specialists + 1 triage coordinator) spanning visual design, typography, accessibility, usability audits, conversion optimization, microinteractions, and engagement loops.
 
-**Version:** `1.0.0-alpha.3`
+**Version:** `1.0.0-alpha.4`
 **License:** MIT (dual — see [LICENSE](./LICENSE) for wondelai attribution)
-**Marketplace:** [`4-successful-ai-life`](../../README.md)
+**Marketplace:** [`nbstack`](../../README.md)
 
 ---
 
@@ -75,30 +75,30 @@ Engagement, retention, and persuasion.
 ### Through the marketplace (recommended)
 
 ```
-/plugin marketplace add fernando-bertholdo/4-successful-AI-life
-/plugin install ui-excellence@4-successful-ai-life
+/plugin marketplace add fernando-bertholdo/nbstack
+/plugin install ui-excellence@nbstack
 /reload-plugins
 ```
 
 ### Via a local clone
 
 ```bash
-git clone https://github.com/fernando-bertholdo/4-successful-AI-life.git
-cd 4-successful-AI-life
+git clone https://github.com/fernando-bertholdo/nbstack.git
+cd nbstack
 ```
 
 Then in Claude Code:
 
 ```
 /plugin marketplace add ./
-/plugin install ui-excellence@4-successful-ai-life
+/plugin install ui-excellence@nbstack
 /reload-plugins
 ```
 
 ### Directly via `--plugin-dir`
 
 ```bash
-claude --plugin-dir /path/to/4-successful-AI-life/plugins/ui-excellence
+claude --plugin-dir /path/to/nbstack/plugins/ui-excellence
 ```
 
 See the [marketplace-level README](../../README.md#installing-plugins) for the full installation guide including `settings.json` auto-install.

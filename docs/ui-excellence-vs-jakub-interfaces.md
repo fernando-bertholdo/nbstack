@@ -5,7 +5,7 @@
 
 | | `ui-excellence` (Fernando) | `interfaces` (Jakub Krehel) |
 |---|---|---|
-| Repo | `fernando-bertholdo/4-successful-AI-life` → `plugins/ui-excellence` | `jakubkrehel/skills` (raiz = plugin + marketplace) |
+| Repo | `fernando-bertholdo/nbstack` → `plugins/ui-excellence` | `jakubkrehel/skills` (raiz = plugin + marketplace) |
 | Versão | `1.0.0-alpha.3` | `1.1.0` |
 | Skills | 13 (12 especialistas + `_coordinator`) | 8 (6 domínios + 1 orquestrador + 1 review de diff) |
 | Linhas de markdown | **21.521** | **4.160** |

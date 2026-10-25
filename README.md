@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="./assets/og-banner.png" alt="4 Successful AI Life — a curated Claude Code plugin marketplace for AI-assisted work" width="840">
+<img src="./assets/og-banner.png" alt="nbstack — a curated Claude Code plugin marketplace for AI-assisted work" width="840">
 
-# 4 Successful AI Life
+# nbstack
 
 **A curated [Claude Code](https://code.claude.com) plugin marketplace — opinionated, production-ready skills for AI-assisted work.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Marketplace](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffernando-bertholdo%2F4-successful-AI-life%2Fmain%2F.claude-plugin%2Fmarketplace.json&query=%24.metadata.version&label=marketplace&prefix=v&color=8A2BE2)](./.claude-plugin/marketplace.json)
+[![Marketplace](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffernando-bertholdo%2Fnbstack%2Fmain%2F.claude-plugin%2Fmarketplace.json&query=%24.metadata.version&label=marketplace&prefix=v&color=8A2BE2)](./.claude-plugin/marketplace.json)
 [![Built for Claude Code](https://img.shields.io/badge/built%20for-Claude%20Code-D97757.svg)](https://code.claude.com)
 
 [Quick Start](#-quick-start) · [Plugins](#-plugins) · [Installation](#-installation) · [Roadmap](#-roadmap) · [Maintainer docs](#-contributing--maintainer-docs)
@@ -18,20 +18,22 @@
 
 A personal marketplace of [Claude Code](https://code.claude.com) plugins by [Fernando Bertholdo](https://github.com/fernando-bertholdo), focused on craft, rigor, and practical excellence. Every plugin is self-contained, documented, and installable in seconds through Claude Code's native plugin system.
 
+**Why "nbstack":** NB is what my friends call me (**N**ando **B**ertholdo), and the name follows Garry Tan's gstack and Lauren Tan's pstack: one person's working stack, published. Until October 2026 this marketplace was called **4 Successful AI Life**; GitHub redirects the old links. If you added it under the old name, run `/plugin marketplace remove 4-successful-ai-life`, add it again with the command below and reinstall the plugins you use.
+
 ## 🚀 Quick Start
 
 Inside any Claude Code session, add the marketplace and install the plugins you want:
 
 ```
-/plugin marketplace add fernando-bertholdo/4-successful-AI-life
-/plugin install ui-excellence@4-successful-ai-life
-/plugin install smart-session-rename-cc@4-successful-ai-life
-/plugin install prompt-master@4-successful-ai-life
-/plugin install generate-session-prompt@4-successful-ai-life
-/plugin install enhanced-planning@4-successful-ai-life
-/plugin install multica-ops@4-successful-ai-life
-/plugin install cmux-hibernate@4-successful-ai-life
-/plugin install decisoes@4-successful-ai-life
+/plugin marketplace add fernando-bertholdo/nbstack
+/plugin install ui-excellence@nbstack
+/plugin install smart-session-rename-cc@nbstack
+/plugin install prompt-master@nbstack
+/plugin install generate-session-prompt@nbstack
+/plugin install enhanced-planning@nbstack
+/plugin install multica-ops@nbstack
+/plugin install cmux-hibernate@nbstack
+/plugin install decisoes@nbstack
 /reload-plugins
 ```
 
@@ -41,14 +43,14 @@ Drop any line you don't want — every plugin is independent. After reload, skil
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [**ui-excellence**](./plugins/ui-excellence/) | `1.0.0-alpha.3` | UI/UX skill bundle with a triage coordinator — visual design, typography, accessibility, usability audits, CRO, microinteractions, and engagement loops. |
+| [**ui-excellence**](./plugins/ui-excellence/) | `1.0.0-alpha.4` | UI/UX skill bundle with a triage coordinator — visual design, typography, accessibility, usability audits, CRO, microinteractions, and engagement loops. |
 | [**smart-session-rename-cc**](./plugins/smart-session-rename-cc/) | `1.5.0` | Auto-names your Claude Code sessions from the work you actually do, via a Stop hook + a Haiku-generated title. |
 | [**prompt-master**](./plugins/prompt-master/) | `1.0.1+upstream-1.8.0` | Generates optimized prompts for any AI tool (LLMs, image/video AI, coding agents). Activates only on explicit prompt-engineering requests. |
 | [**generate-session-prompt**](./plugins/generate-session-prompt/) | `1.1.1+upstream-4.0.0` | Generates a handoff prompt to resume work in a new session — for long sessions, pauses, or tool switches. |
 | [**enhanced-planning**](./plugins/enhanced-planning/) | `1.1.1+upstream-2.0.0` | Adds structural guardrails to implementation plans — human checkpoints, risk registry, decision locks, multi-session protocol, and Codex review. Complements `writing-plans`. |
-| [**multica-ops**](./plugins/multica-ops/) | `0.2.11` | Companion to Multica's official CLI skill — desktop-app binary discovery, the bridged-session route, the shapes and limits the reference omits, and the constraints of a governed board. |
+| [**multica-ops**](./plugins/multica-ops/) | `0.2.12` | Companion to Multica's official CLI skill — desktop-app binary discovery, the bridged-session route, the shapes and limits the reference omits, and the constraints of a governed board. |
 | [**cmux-hibernate**](./plugins/cmux-hibernate/) | `0.2.0` | Hibernates the Claude Code sessions open across cmux workspaces before you quit cmux, so they come back one at a time, as you open each tab, instead of all at once. |
-| [**decisoes**](./plugins/decisoes/) | `0.1.0` | A Claude Code mod that collects the decisions only you can make in each session, lets you answer them with buttons, and takes you to the other cmux sessions waiting on you. Texts in Portuguese. |
+| [**decisoes**](./plugins/decisoes/) | `0.1.1` | A Claude Code mod that collects the decisions only you can make in each session, lets you answer them with buttons, and takes you to the other cmux sessions waiting on you. Texts in Portuguese. |
 
 <details>
 <summary><b>🎨 ui-excellence</b> — UI/UX craft, framework-agnostic</summary>
@@ -204,15 +206,15 @@ The [Quick Start](#-quick-start) above is the recommended path — install from 
 Clone the repository and add the local path as a marketplace:
 
 ```bash
-git clone https://github.com/fernando-bertholdo/4-successful-AI-life.git
-cd 4-successful-AI-life
+git clone https://github.com/fernando-bertholdo/nbstack.git
+cd nbstack
 ```
 
 Then, inside a Claude Code session launched from the clone directory:
 
 ```
 /plugin marketplace add ./
-/plugin install ui-excellence@4-successful-ai-life
+/plugin install ui-excellence@nbstack
 /reload-plugins
 ```
 
@@ -245,22 +247,22 @@ To auto-install in a project, add to `.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "4-successful-ai-life": {
+    "nbstack": {
       "source": {
         "source": "github",
-        "repo": "fernando-bertholdo/4-successful-AI-life"
+        "repo": "fernando-bertholdo/nbstack"
       }
     }
   },
   "enabledPlugins": {
-    "ui-excellence@4-successful-ai-life": true,
-    "smart-session-rename-cc@4-successful-ai-life": true,
-    "prompt-master@4-successful-ai-life": true,
-    "generate-session-prompt@4-successful-ai-life": true,
-    "enhanced-planning@4-successful-ai-life": true,
-    "multica-ops@4-successful-ai-life": true,
-    "cmux-hibernate@4-successful-ai-life": true,
-    "decisoes@4-successful-ai-life": true
+    "ui-excellence@nbstack": true,
+    "smart-session-rename-cc@nbstack": true,
+    "prompt-master@nbstack": true,
+    "generate-session-prompt@nbstack": true,
+    "enhanced-planning@nbstack": true,
+    "multica-ops@nbstack": true,
+    "cmux-hibernate@nbstack": true,
+    "decisoes@nbstack": true
   }
 }
 ```
@@ -282,7 +284,7 @@ MIT — see [LICENSE](./LICENSE). Individual plugins may carry additional attrib
 
 ## 🤝 Contributing & maintainer docs
 
-This marketplace is maintained for personal and project-specific use. External contributions aren't actively solicited, but issues and discussion are welcome on the [issue tracker](https://github.com/fernando-bertholdo/4-successful-AI-life/issues).
+This marketplace is maintained for personal and project-specific use. External contributions aren't actively solicited, but issues and discussion are welcome on the [issue tracker](https://github.com/fernando-bertholdo/nbstack/issues).
 
 - **How plugins are built, vendored, versioned, and synced** → [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 - **Repo conventions & the anti-drift checklist** → [`CLAUDE.md`](./CLAUDE.md)

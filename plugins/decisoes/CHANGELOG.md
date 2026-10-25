@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.1] — 2026-10-25
+
+### Changed
+- O marketplace agora se chama `nbstack`: os comandos de instalação do README e o `repository`
+  do `plugin.json` usam o nome novo. O mod não muda.
+
 ## [0.1.0] — 2026-10-04
 
 ### Added

@@ -1,6 +1,6 @@
 # CLAUDE.md — maintainer & agent context
 
-This file is the canonical maintenance guide for the **4 Successful AI Life** marketplace.
+This file is the canonical maintenance guide for the **nbstack** marketplace (called 4 Successful AI Life until October 2026).
 It documents conventions (how to maintain), not the catalog (what exists) — the catalog's
 single source of truth is [`.claude-plugin/marketplace.json`](./.claude-plugin/marketplace.json)
 and each plugin's `.claude-plugin/plugin.json`.

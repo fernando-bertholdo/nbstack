@@ -37,8 +37,8 @@ uma decisão.
 ## Instalação
 
 ```
-/plugin marketplace add fernando-bertholdo/4-successful-AI-life
-/plugin install decisoes@4-successful-ai-life
+/plugin marketplace add fernando-bertholdo/nbstack
+/plugin install decisoes@nbstack
 /reload-plugins
 ```
 
