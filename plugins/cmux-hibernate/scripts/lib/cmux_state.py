@@ -306,6 +306,13 @@ def rodar_cmux(*args: str) -> str:
     return r.stdout
 
 
+def versao_do_cmux() -> Optional[str]:
+    try:
+        return rodar_cmux("--version").strip() or None
+    except (RuntimeError, OSError, subprocess.SubprocessError):
+        return None
+
+
 def _ps_eww() -> str:
     """Uma linha por processo claude, com o environment anexado."""
     base = subprocess.run(["ps", "-A", "-ww", "-o", "pid=,command="],

@@ -70,9 +70,10 @@ def paineis(dados: dict) -> Dict[str, Painel]:
     return achados
 
 
-def ler_autosave(caminho: Path = CAMINHO_AUTOSAVE) -> Tuple[float, Dict[str, Painel]]:
+def ler_autosave(caminho: Optional[Path] = None) -> Tuple[float, Dict[str, Painel]]:
     """(mtime, paineis). Erro de leitura ou de formato e' RuntimeError: sem esta fonte
     nao ha como conferir desarme nenhum."""
+    caminho = caminho or CAMINHO_AUTOSAVE
     try:
         mtime = caminho.stat().st_mtime
         return mtime, paineis(json.loads(caminho.read_text()))
@@ -80,8 +81,9 @@ def ler_autosave(caminho: Path = CAMINHO_AUTOSAVE) -> Tuple[float, Dict[str, Pai
         raise RuntimeError("nao li o autosave do cmux em %s (%s)" % (caminho, e))
 
 
-def ler_hooks(caminho: Path = CAMINHO_HOOKS) -> Dict[str, dict]:
+def ler_hooks(caminho: Optional[Path] = None) -> Dict[str, dict]:
     """sessao -> ultimo registro do hook do Claude no cmux; {} quando nao da para ler."""
+    caminho = caminho or CAMINHO_HOOKS
     try:
         dados = json.loads(caminho.read_text())
         return {k: v for k, v in dados["sessions"].items() if isinstance(v, dict)}

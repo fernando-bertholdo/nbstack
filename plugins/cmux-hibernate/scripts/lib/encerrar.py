@@ -54,8 +54,9 @@ def _ppid(pid: str) -> Optional[str]:
 
 
 def ancestrais(pid: Optional[str] = None,
-               ppid: Callable[[str], Optional[str]] = _ppid) -> Set[str]:
+               ppid: Optional[Callable[[str], Optional[str]]] = None) -> Set[str]:
     """O pid e toda a cadeia de pais. Encerrar um deles mataria quem roda o comando."""
+    ppid = ppid or _ppid
     atual = pid or str(os.getpid())
     vistos: Set[str] = set()
     while atual and atual != "0" and atual not in vistos:
@@ -70,9 +71,10 @@ def _env_de(pid: str) -> str:
     return r.stdout.replace("\n", " ")
 
 
-def processo_confere(pid: str, surface: str, env_de: Callable[[str], str] = _env_de) -> bool:
+def processo_confere(pid: str, surface: str,
+                     env_de: Optional[Callable[[str], str]] = None) -> bool:
     """O pid ainda e' um claude daquela aba? Relido logo antes do SIGTERM."""
-    linha = env_de(pid)
+    linha = (env_de or _env_de)(pid)
     return ("/.local/bin/claude" in linha
             and ("CMUX_SURFACE_ID=%s" % surface.upper()) in linha.upper())
 
@@ -87,9 +89,11 @@ def _vivo(pid: str) -> bool:
     return True
 
 
-def encerrar(pids: Iterable[str], matar=os.kill, vivo=_vivo, dormir=time.sleep,
-             relogio=time.monotonic, teto: float = TETO_SAIDA) -> Set[str]:
+def encerrar(pids: Iterable[str], matar=None, vivo=None, dormir=None, relogio=None,
+             teto: float = TETO_SAIDA) -> Set[str]:
     """SIGTERM em cada pid e espera ate' o teto. Devolve os que nao sairam. Nunca SIGKILL."""
+    matar, vivo = matar or os.kill, vivo or _vivo
+    dormir, relogio = dormir or time.sleep, relogio or time.monotonic
     pendentes = set()
     for pid in pids:
         try:
@@ -106,18 +110,20 @@ def encerrar(pids: Iterable[str], matar=os.kill, vivo=_vivo, dormir=time.sleep,
     return pendentes
 
 
-def limpar_registro(painel, rodar=rodar_cmux) -> str:
+def limpar_registro(painel, rodar=None) -> str:
     """Pede ao cmux que esqueca o agente da aba. A resposta nao prova nada: confira."""
     payload = {"window_id": painel.janela, "workspace_id": painel.workspace,
                "surface_id": painel.surface, "checkpoint_id": painel.sessao,
                "source": "agent-hook", "agent_session_ended": True}
-    return rodar("rpc", "surface.resume.clear", json.dumps(payload))
+    return (rodar or rodar_cmux)("rpc", "surface.resume.clear", json.dumps(payload))
 
 
-def conferir(surfaces: Iterable[str], depois_de: float, ler=ler_autosave, dormir=time.sleep,
-             relogio=time.monotonic, teto: float = TETO_CONFERENCIA) -> Dict[str, Optional[str]]:
+def conferir(surfaces: Iterable[str], depois_de: float, ler=None, dormir=None, relogio=None,
+             teto: float = TETO_CONFERENCIA) -> Dict[str, Optional[str]]:
     """surface -> None (desarmada no autosave regravado depois de `depois_de`) ou o motivo
     da falha. So' vale um save posterior a acao; le de novo ate' o teto."""
+    ler, dormir = ler or ler_autosave, dormir or time.sleep
+    relogio = relogio or time.monotonic
     alvos = [s.upper() for s in surfaces]
     if not alvos:
         return {}
