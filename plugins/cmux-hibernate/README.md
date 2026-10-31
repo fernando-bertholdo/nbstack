@@ -51,12 +51,26 @@ python3 scripts/wake.py --rebuild       # recria workspaces ausentes
 ```
 
 `--all` inclui a aba de onde o `hibernate` roda. `--surface <aba>` planeja uma aba só,
-pelo uuid ou pela ref `surface:N` do `cmux tree`, inclusive a de onde o comando roda.
-`--estado DIR` troca o diretório dos snapshots, nos dois scripts.
+pelo uuid ou pela ref `surface:N` do `cmux tree`; as outras herdam no snapshot o plano do
+último `--apply`. `--estado DIR` troca o diretório dos snapshots, nos dois scripts.
+
+O `hibernate` nunca encerra a sessão que o roda. Se ela é alvo (com `--all`, ou com
+`--surface` na própria aba), sai como PENDENTE e pede `/exit`: o `SessionEnd` do `/exit`
+desarma a aba. Para hibernar a própria aba sem `/exit`, rode o comando de fora dela.
+
+Antes de "Pode dar Cmd+Q", o `hibernate` relê o autosave (um save posterior ao início do
+comando; sem mudança nenhuma, o cmux pode levar até 60 s para regravar) e roda um `ps`
+novo: nenhum painel armado e nenhum `claude` vivo fora da aba de controle.
 
 Códigos de saída do `hibernate`: 0 no caminho normal; 1 quando alguma aba-alvo não foi
 conferida desarmada (no dry-run, só com `--surface`); 2 em erro de leitura do cmux ou de
-argumento.
+argumento; 3 quando só falta a sessão que roda o comando sair com `/exit`. Do `wake`: 0
+sem falha, 1 com alguma FALHA, 2 em erro.
+
+O comando de retomada (`--up` e `INVENTARIO.md`) é
+`claude --resume <sessão> --dangerously-skip-permissions`, o modo em que as sessões deste
+fluxo rodam. Quem usa o Claude Code com pedidos de permissão deve tirar a flag ao colar o
+comando.
 
 ## Limitações conhecidas
 
@@ -68,8 +82,12 @@ argumento.
   de controle sobe, e o que a aba encerrada mostra ao ser aberta, ficam a confirmar no
   primeiro Cmd+Q com a 0.3.0.
 - **Aba ocupada é pulada, e o critério é heurístico:** transcript escrito há menos de
-  60 s ou o registro do hook do cmux dizendo que há turno. Uma ferramenta longa sem
-  registro no hook passa por ociosa.
+  60 s (o da sessão ou um `.jsonl` novo do mesmo projeto) ou o registro do hook do cmux
+  dizendo que há turno. Uma ferramenta longa sem registro no hook passa por ociosa.
+- **Restore atrasado e clique na aba não se distinguem.** O `wake` usa a hora em que o
+  processo nasceu: até 60 s depois do cmux é "subiu sozinha"; depois, "acordada", ou
+  "suspeita" quando o `hibernate` não tinha conferido a aba. O ambiente não ajuda:
+  `CMUX_AGENT_RESUME_LAUNCH=1` sai de todo `claude --resume <id>` pelo wrapper do cmux.
 - **Splits aproximados no `--rebuild`.** O CLI do cmux não expõe a proporção real dos
   painéis; a reconstrução assume 50/50.
 - **Sessões sem transcript não voltam.** Se o `.jsonl` não existe mais em disco, não há o

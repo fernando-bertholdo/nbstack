@@ -56,7 +56,32 @@
 - Um erro no meio do `--apply` (um `rpc` que levanta, por exemplo) não derruba o script
   depois dos SIGTERMs: os alvos sem resultado ficam não verificados, o snapshot é gravado
   e a saída é 1, sem "Pode dar Cmd+Q".
-- Testes: de 83 para 171, medidos em 31/10/2026. Os do `main()` rodam contra um cmux falso
+- **Conferência global antes do Cmd+Q.** Um autosave regravado depois do início do
+  comando (até 75 s de espera, porque sem mudança o cmux pode pular o save por 60 s) e um
+  `ps` novo: nenhum painel armado e nenhum `claude` vivo fora da aba de controle. Cada
+  alvo, inclusive o que já dormia, é conferido nessa releitura; painel que some do
+  autosave, ou um autosave sem painel de terminal, não confere.
+- Com vários `claude` na mesma aba, vale o que não descende de outro `claude` da aba, e a
+  aba só passa sem `claude` nenhum depois do SIGTERM.
+- Antes do SIGTERM, o binário vem do argv (`ps -o args=`) e o instante de nascimento do
+  processo tem de ser o da leitura inicial, o que barra pid reusado.
+- "Ocupada" olha também o `.jsonl` novo do mesmo projeto (depois de um `/clear`) e o
+  registro do hook achado pela aba; `error` só segura a aba se for recente.
+- O snapshot do `--apply` é gravado antes do primeiro sinal e regravado num `finally` que
+  cobre interrupção; `concluido` diz se o `--apply` chegou ao fim.
+- Com `--surface`, as outras abas herdam o plano do último `--apply` (`herdado: true`).
+- A sessão que roda o comando nunca é encerrada: alvo dela sai como PENDENTE, com código 3
+  e o pedido de `/exit`.
+- O `wake.py` sai com 1 quando há FALHA: subiu sozinha, não dormiu, suspeita (nasceu tarde
+  numa aba que o hibernate não conferiu) e a aba de controle que não subiu. Nos primeiros
+  120 s depois de o cmux abrir, ele pede para rodar de novo.
+- Uma versão do cmux diferente da 0.65.2 gera aviso. O `INVENTARIO.md` cita o `cwd` com
+  `shlex.quote`.
+- **A fixture `ps-eww.txt` saía com o ambiente real**: o token do socket do cmux, o argv
+  em base64, o `TMPDIR` e o serviço do launchd, publicados desde a 0.1.0. A linha passou a
+  ser reconstruída por lista de permissão, e `test_sanitize.py` reprova ambiente real em
+  qualquer fixture versionada.
+- Testes: de 83 para 210, medidos em 31/10/2026. Os do `main()` rodam contra um cmux falso
   (`tests/unit/cmux_falso.py`), que reproduz o SIGTERM, o autosave regravado e o `OK` que
   não pega; as fixtures novas (`autosave.json`, `claude-hook-sessions.json`) são
   inventadas.

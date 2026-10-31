@@ -29,14 +29,18 @@ O plano traz uma ação por aba:
 - **pular**: ocupada, sessão em mais de uma aba, ou a própria sessão que roda o comando;
 - **controle**: a aba de onde o comando roda, que continua armada.
 
-"Ocupada" é o transcript escrito há menos de 60 s, ou o registro do hook do cmux dizendo
-que há turno, pedido de permissão ou trabalho de fundo (subagente) pendente. Uma aba
-pulada não dorme: diga qual é e por quê, e rode de novo quando o turno dela acabar.
+"Ocupada" é o transcript escrito há menos de 60 s (o da sessão ou um `.jsonl` novo do
+mesmo projeto, como depois de um `/clear`), ou o registro do hook do cmux, achado pela
+sessão ou pela aba, dizendo que há turno, pedido de permissão ou trabalho de fundo
+(subagente) pendente. Uma aba pulada não dorme: diga qual é e por quê, e rode de novo
+quando o turno dela acabar.
 
 Só diga ao usuário que pode dar Cmd+Q quando a saída do `--apply` disser "Pode dar
-Cmd+Q". Ela só diz isso quando todas as abas-alvo foram conferidas desarmadas no autosave
-do cmux. Se a saída listar alguma como FALHOU (código de saída 1), não libere o
-fechamento: aquela aba pode subir sozinha ao reabrir.
+Cmd+Q". Antes de dizer isso, o script relê o autosave do cmux (um save posterior ao
+início do comando, o que pode levar até 75 s quando nada mudou) e roda um `ps` novo: só
+libera com todas as abas-alvo desarmadas, nenhum painel armado e nenhum `claude` vivo
+fora da aba de controle. Se a saída listar alguma linha FALHOU (código de saída 1), não
+libere o fechamento: aquela aba pode subir sozinha ao reabrir.
 
 Repita ao usuário as duas instruções que a saída traz:
 
@@ -45,12 +49,17 @@ Repita ao usuário as duas instruções que a saída traz:
   processos antigos terminarem, o restore da aba de controle pode falhar com
   "conflict: The surface restore record changed".
 
-A aba de controle é a única que sobe quando o cmux reabre. `--all` a inclui; se o
-comando roda dentro dela, ela é pulada e o usuário precisa sair dela com `/exit` antes
-do Cmd+Q.
+A aba de controle é a única que sobe quando o cmux reabre. `--all` a inclui.
 
-Para uma aba só, `--surface <uuid|surface:N>`: planeja aquela aba e nenhuma outra,
-inclusive a de onde o comando roda.
+Para uma aba só, `--surface <uuid|surface:N>`: planeja aquela aba e nenhuma outra. As
+outras herdam, no snapshot, o plano do último `--apply`, para o `wake.py` continuar
+cobrindo-as.
+
+O script nunca encerra a sessão que o roda. Se o alvo é a própria aba (com `--all`, ou
+`--surface` nela), ela sai como PENDENTE, com código de saída 3 e o pedido de `/exit`:
+o `/exit` encerra o `claude` e o hook `SessionEnd` desarma a aba. Diga isso ao usuário e
+só então libere o Cmd+Q. Para hibernar a própria aba sem `/exit`, o comando tem de rodar
+de fora dela (outra aba, ou um script desacoplado, como no revezamento de sessão).
 
 ## Depois de reabrir
 
@@ -63,7 +72,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/wake.py" --rebuild    # recria o que sumi
 
 Quando o usuário disser que reabriu o cmux, ou perguntar se voltou tudo, rode a
 conferência antes de responder. Ela compara o plano do último `--apply` com o estado
-real. Rodada antes do Cmd+Q, ela avisa que a conferência que vale é a de depois.
+real. Rodada antes do Cmd+Q, ela avisa que a conferência que vale é a de depois. Rodada
+nos primeiros 2 min depois de o cmux abrir, ela avisa que o restore pode não ter
+terminado: espere e rode de novo antes de dar o veredito. O código de saída é 1 quando há
+alguma FALHA.
 
 Uma aba encerrada não volta com o Claude sozinha. Para retomar, use `wake.py --up` ou o
 comando do `INVENTARIO.md` do snapshot. O que a aba mostra ao ser aberta (shell vazio) e
@@ -76,6 +88,11 @@ se o clique nela inicia o Claude são **a confirmar na primeira reabertura**: at
 - **subiu sozinha** é falha: a aba devia dormir e o cmux a lançou ao reabrir. Diga quais
   são e ofereça rodar o `hibernate.py` de novo, que encerra as ociosas.
 - **não dormiu** é falha: o processo é anterior ao hibernate, o encerramento não pegou.
+- **suspeita** é falha provável: o processo nasceu depois do restore, mas o hibernate não
+  tinha conferido aquela aba desarmada. Pode ser o restore atrasado ou alguém que abriu a
+  aba; o ambiente do processo não distingue os dois. Pergunte ao usuário se ele a abriu.
+- **controle não subiu** é falha: a aba de onde o hibernate rodou devia voltar com o
+  Claude. O shell dela pode mostrar "conflict: The surface restore record changed".
 - **acordada por você às HH:MM BRT**: alguém abriu a aba depois de reabrir. Nada se
   perdeu, mas ela gasta memória e ficou armada para o próximo fechamento. Ofereça pô-la
   para dormir de novo com `hibernate.py --surface <aba> --apply`.
@@ -86,8 +103,9 @@ se o clique nela inicia o Claude são **a confirmar na primeira reabertura**: at
   com todas as letras em vez de sugerir tentativas.
 - **anomalia: sessão em mais de uma aba** é pulada de propósito. Reporte, não contorne.
 
-"Nada a corrigir" só aparece quando não há subiu sozinha, não dormiu, armada nem
-ausente. Com qualquer um deles, não diga ao usuário que voltou tudo.
+"Nada a corrigir" só aparece quando não há falha, armada nem ausente, o autosave foi
+lido e o restore já teve tempo de terminar. Fora disso, não diga ao usuário que voltou
+tudo.
 
 ## O que não fazer
 
