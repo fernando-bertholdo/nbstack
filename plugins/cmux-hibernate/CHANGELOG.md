@@ -20,8 +20,10 @@
 ### Changed
 - `hibernate.py --apply` **encerra com SIGTERM o `claude` ocioso** de cada aba-alvo. A
   memória sai na hora, e o hook `SessionEnd` tira do autosave do cmux o `agent` e o binding
-  da aba. O pid é relido antes do sinal (precisa ser um `claude` com o mesmo
-  `CMUX_SURFACE_ID`), a espera é de até 10 s e não há SIGKILL. A aba armada sem processo
+  da aba. O pid é relido antes do sinal (precisa ser um `claude`, não o daemon de fundo,
+  com a variável `CMUX_SURFACE_ID` daquela aba), a espera é de até 10 s e não há SIGKILL.
+  Aba com `claude` vivo sem o id da sessão no argv também leva o pid, para não virar uma
+  limpeza de registro com o processo de pé. A aba armada sem processo
   (um restore que falhou) é limpa por `cmux rpc surface.resume.clear` com
   `agent_session_ended: true`, que também é a reserva quando o `SessionEnd` não limpa.
   Esse parâmetro é contrato interno do hook do cmux, e por isso só vale conferido.
@@ -51,7 +53,10 @@
   marcado como a confirmar. O `plugin.json` passa o `repository` para
   `fernando-bertholdo/nbstack` e deixa de dizer que o plugin libera memória sem encerrar
   nada.
-- Testes: de 83 para 166, medidos em 31/10/2026. Os do `main()` rodam contra um cmux falso
+- Um erro no meio do `--apply` (um `rpc` que levanta, por exemplo) não derruba o script
+  depois dos SIGTERMs: os alvos sem resultado ficam não verificados, o snapshot é gravado
+  e a saída é 1, sem "Pode dar Cmd+Q".
+- Testes: de 83 para 171, medidos em 31/10/2026. Os do `main()` rodam contra um cmux falso
   (`tests/unit/cmux_falso.py`), que reproduz o SIGTERM, o autosave regravado e o `OK` que
   não pega; as fixtures novas (`autosave.json`, `claude-hook-sessions.json`) são
   inventadas.
