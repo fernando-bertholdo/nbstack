@@ -76,6 +76,14 @@ class TestCompletar(unittest.TestCase):
         a = next(x for *_, x in e.todas_abas() if x.uuid == DORMIA)
         self.assertEqual((a.sessao, a.fonte), ("s-nova", "autosave"))
 
+    def test_aba_com_processo_sem_id_no_argv_leva_o_pid(self):
+        """Processo vivo cujo binding nao foi lido: nao pode virar 'limpar' com o claude de pe."""
+        e = estado()
+        e.processos = {ARMADA: "777"}
+        completar_inventario(e, {ARMADA: p(ARMADA, "s-armada", "agent")}, None, raiz=self.raiz)
+        a = next(x for *_, x in e.todas_abas() if x.uuid == ARMADA)
+        self.assertEqual((a.sessao, a.pid), ("s-armada", "777"))
+
     def test_sem_anterior(self):
         e = estado()
         self.assertEqual(completar_inventario(e, {}, None, raiz=self.raiz),

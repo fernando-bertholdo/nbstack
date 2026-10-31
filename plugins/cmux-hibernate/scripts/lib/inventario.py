@@ -35,6 +35,9 @@ def completar_inventario(estado: Estado, paineis: Dict, anterior: Optional[dict]
             aba.armada = painel.armado
         if aba.sessao:
             continue
+        # claude vivo na aba sem id no argv: o pid vem junto, para o plano o encerrar
+        # em vez de limpar o registro com o processo de pe (o proximo turno rearmaria)
+        aba.pid = aba.pid or estado.processos.get(aba.uuid)
         if painel is not None and painel.sessao:
             aba.sessao, aba.fonte = painel.sessao, "autosave"
             aba.cwd = aba.cwd or painel.cwd

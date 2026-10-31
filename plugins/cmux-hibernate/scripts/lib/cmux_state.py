@@ -66,6 +66,8 @@ class Janela:
 @dataclass
 class Estado:
     janelas: List[Janela] = field(default_factory=list)
+    # surface -> pid de todo claude com aba, tenha ou nao o id da sessao no argv
+    processos: Dict[str, str] = field(default_factory=dict)
 
     def todas_abas(self) -> Iterator[Tuple[Janela, Workspace, Pane, Aba]]:
         for j in self.janelas:
@@ -389,7 +391,8 @@ def ler_estado(raiz_projetos: Path = RAIZ_PROJETOS) -> Estado:
 
     # Abas com processo vivo cujo id nao apareceu no argv (retomadas por titulo):
     # o binding e' o unico caminho, e fica marcado como tal.
-    complementar_por_binding(estado, surfaces_com_processo(saida_ps))
+    estado.processos = surfaces_com_processo(saida_ps)
+    complementar_por_binding(estado, estado.processos)
 
     for *_, aba in estado.todas_abas():
         if aba.sessao:

@@ -56,7 +56,8 @@ def main() -> int:
     except RuntimeError as e:
         print("aviso: %s; 'armada' nao foi conferida" % e, file=sys.stderr)
         armadas = None
-    pids = [a.pid for *_, a in estado.todas_abas() if a.pid]
+    pids = {a.pid for *_, a in estado.todas_abas() if a.pid} | set(estado.processos.values())
+    pids = sorted(pids)
     inicios, cmux = inicios_de(pids), inicio_do_cmux()
 
     idade = idade_em_dias(dados, time.time())

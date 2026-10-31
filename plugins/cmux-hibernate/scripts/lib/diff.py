@@ -92,7 +92,7 @@ def comparar(dados: dict, estado, armadas: Optional[Dict[str, str]] = None,
                 "workspace": w["nome"], "janela": j["uuid"], "ws_uuid": w["uuid"],
                 "surface": a["uuid"], "ref": a.get("ref")}
         atual = atuais.get(a["uuid"])
-        pid = atual.pid if atual is not None else None
+        pid = (atual.pid or estado.processos.get(a["uuid"])) if atual is not None else None
         viva = pid is not None or a["sessao"] in vivas_agora
         acao = (plano.get(a["uuid"]) or {}).get("acao")
         if not a.get("transcript"):

@@ -202,6 +202,13 @@ class TestCompararComPlano(unittest.TestCase):
     def test_ausente(self):
         self.assertEqual(self.sessoes("ausentes"), ["s9"])
 
+    def test_processo_sem_id_no_argv_tambem_conta(self):
+        e = estado_reaberto()
+        e.processos = {"U4": "4"}
+        r = comparar(snap_com_plano(), e, armadas={}, inicios=dict(INICIOS, **{"4": CMUX + 1}),
+                     inicio_cmux=CMUX)
+        self.assertIn("s4", [x["sessao"] for x in r["subiu_sozinha"]])
+
     def test_sem_inicio_do_cmux_conta_como_subiu_sozinha(self):
         r = comparar(snap_com_plano(), estado_reaberto(), armadas={}, inicios={},
                      inicio_cmux=None)
