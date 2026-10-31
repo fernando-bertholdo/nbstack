@@ -68,6 +68,12 @@ class TestProcessoConfere(unittest.TestCase):
             "9", SURF, env_de=lambda p: "/bin/zsh CMUX_SURFACE_ID=%s" % SURF))
         self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: ""))
 
+    def test_nao_aceita_variavel_de_outro_nome_nem_o_daemon(self):
+        base = "/Users/x/.local/bin/claude --resume abc OUTRA_CMUX_SURFACE_ID=%s" % SURF
+        self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: base))
+        daemon = "/Users/x/.local/bin/claude daemon run CMUX_SURFACE_ID=%s" % SURF
+        self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: daemon))
+
 
 class TestEncerrar(unittest.TestCase):
     def test_sigterm_e_espera_sair(self):

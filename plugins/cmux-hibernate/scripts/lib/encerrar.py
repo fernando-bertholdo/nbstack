@@ -14,6 +14,7 @@ e o resultado so' vale conferido no autosave.
 """
 import json
 import os
+import re
 import signal
 import subprocess
 import time
@@ -71,12 +72,18 @@ def _env_de(pid: str) -> str:
     return r.stdout.replace("\n", " ")
 
 
+_RE_SURFACE = re.compile(r"(?:^|\s)CMUX_SURFACE_ID=([0-9A-Fa-f-]{36})(?:\s|$)")
+
+
 def processo_confere(pid: str, surface: str,
                      env_de: Optional[Callable[[str], str]] = None) -> bool:
-    """O pid ainda e' um claude daquela aba? Relido logo antes do SIGTERM."""
+    """O pid ainda e' o claude daquela aba? Relido logo antes do SIGTERM: o binario, a
+    variavel com o nome exato e o uuid inteiro, e nao o daemon de fundo do claude."""
     linha = (env_de or _env_de)(pid)
-    return ("/.local/bin/claude" in linha
-            and ("CMUX_SURFACE_ID=%s" % surface.upper()) in linha.upper())
+    if "/.local/bin/claude" not in linha or " daemon run" in linha:
+        return False
+    m = _RE_SURFACE.search(linha)
+    return bool(m) and m.group(1).upper() == surface.upper()
 
 
 def _vivo(pid: str) -> bool:
