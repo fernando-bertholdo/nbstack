@@ -12,9 +12,10 @@ from lib.carimbo import ler, mais_recentes_primeiro
 MAX_SNAPSHOT_AGE = 3
 
 
-def _aplicados(base: Path):
-    """Os snapshots de --apply, do mais recente ao mais antigo. Dry-run e snapshot sem
-    tipo (gravado ate' a 0.2.0, quando dry-run e --apply nao se distinguiam) ficam fora."""
+def _aplicados(base: Path, aceita_sem_tipo: bool = False):
+    """Os snapshots de --apply, do mais recente ao mais antigo. Dry-run fica fora, e o
+    snapshot sem tipo (gravado ate' a 0.2.0, quando dry-run e --apply nao se distinguiam)
+    so' entra com aceita_sem_tipo."""
     if not base.exists():
         return
     for d in mais_recentes_primeiro([d for d in base.iterdir() if (d / "snapshot.json").exists()]):
@@ -22,7 +23,7 @@ def _aplicados(base: Path):
             dados = json.loads((d / "snapshot.json").read_text())
         except (OSError, ValueError):
             continue
-        if dados.get("tipo") == "apply":
+        if dados.get("tipo") == "apply" or (aceita_sem_tipo and "tipo" not in dados):
             yield dados, d
 
 
@@ -40,6 +41,14 @@ def carregar_snapshot(base: Path, escolhido: Optional[Path] = None) -> Tuple[dic
 
 def ultimo_apply(base: Path) -> Optional[dict]:
     for dados, _ in _aplicados(base):
+        return dados
+    return None
+
+
+def ultimo_para_inventario(base: Path) -> Optional[dict]:
+    """De onde o hibernate tira quem ja dormia: o ultimo --apply, ou o da 0.2.0, sem tipo.
+    So' serve para lembrar a sessao de uma aba sem processo; nao entra na comparacao."""
+    for dados, _ in _aplicados(base, aceita_sem_tipo=True):
         return dados
     return None
 

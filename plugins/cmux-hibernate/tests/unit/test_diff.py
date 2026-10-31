@@ -11,7 +11,8 @@ sys.path.insert(0, str(RAIZ / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from fuso import FusoFixo  # noqa: E402
 from lib.cmux_state import Aba, Estado, Janela, Pane, Workspace  # noqa: E402
-from lib.diff import carregar_snapshot, comparar, idade_em_dias, ultimo_apply  # noqa: E402
+from lib.diff import (  # noqa: E402
+    carregar_snapshot, comparar, idade_em_dias, ultimo_apply, ultimo_para_inventario)
 
 SNAP = {
     "gerado_em": "2026-08-04T14:22:31",
@@ -107,6 +108,17 @@ class TestCarregarSnapshot(FusoFixo, unittest.TestCase):
             _, origem = carregar_snapshot(base)
             self.assertEqual(origem.name, "2026-10-31T05-36-55Z")
             self.assertEqual(ultimo_apply(base)["gerado_em"], "2026-10-31T05:36:55Z")
+
+    def test_inventario_aceita_o_snapshot_sem_tipo_mas_nao_o_dry_run(self):
+        """Quem ja dormia antes da 0.3.0 so' esta no snapshot da 0.2.0, que nao diz o tipo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            self._grava(base, "2026-10-31T05-36-55Z", "2026-10-31T05:36:55Z", tipo=None)
+            self._grava(base, "2026-10-31T06-00-00Z", "2026-10-31T06:00:00Z", tipo="dry-run")
+            self._grava(base, "ultimo-dry-run", "2026-10-31T07:00:00Z", tipo="dry-run")
+            self.assertEqual(ultimo_para_inventario(base)["gerado_em"], "2026-10-31T05:36:55Z")
+            self._grava(base, "2026-10-31T05-40-00Z", "2026-10-31T05:40:00Z")
+            self.assertEqual(ultimo_para_inventario(base)["gerado_em"], "2026-10-31T05:40:00Z")
 
     def test_ultimo_apply_sem_nada_e_none(self):
         with tempfile.TemporaryDirectory() as tmp:
