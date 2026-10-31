@@ -38,10 +38,29 @@ class TestOcupada(unittest.TestCase):
 
     def test_hook_em_turno_ou_esperando_e_ocupada(self):
         for reg in ({"runtimeStatus": "running"}, {"runtimeStatus": "needsInput"},
+                    {"runtimeStatus": "error", "updatedAt": 999.0},
                     {"runtimeStatus": "idle", "agentLifecycle": "backgroundWorkPending"},
                     {"runtimeStatus": "idle", "agentLifecycle": "running"}):
             self.assertIsNotNone(encerrar.motivo_ocupada("s", 100.0, {"s": reg}, agora=1000.0),
                                  reg)
+
+    def test_transcript_mais_recente_do_projeto_conta(self):
+        """Depois de um /clear a sessao escreve noutro .jsonl do mesmo projeto."""
+        m = encerrar.motivo_ocupada("s", [100.0, 995.0], {}, agora=1000.0)
+        self.assertIn("ha 5 s", m)
+
+    def test_hook_achado_pela_aba(self):
+        hooks = {"outra": {"surfaceId": "b0000001-0000-4000-8000-000000000001",
+                           "runtimeStatus": "running"}}
+        self.assertIsNotNone(encerrar.motivo_ocupada("s", 100.0, hooks, agora=1000.0,
+                                                     surface=SURF))
+        self.assertIsNone(encerrar.motivo_ocupada("s", 100.0, hooks, agora=1000.0))
+
+    def test_error_antigo_nao_prende_a_aba_para_sempre(self):
+        velho = {"s": {"runtimeStatus": "error", "updatedAt": 100.0}}
+        novo = {"s": {"runtimeStatus": "error", "updatedAt": 990.0}}
+        self.assertIsNone(encerrar.motivo_ocupada("s", 100.0, velho, agora=1000.0))
+        self.assertIsNotNone(encerrar.motivo_ocupada("s", 100.0, novo, agora=1000.0))
 
     def test_sem_transcript_e_sem_hook_e_ociosa(self):
         self.assertIsNone(encerrar.motivo_ocupada("s", None, {}, agora=1000.0))
@@ -57,22 +76,36 @@ class TestAncestrais(unittest.TestCase):
         self.assertEqual(encerrar.ancestrais("50", ppid=lambda p: None), {"50"})
 
 
+ARGS = "/Users/x/.local/bin/claude --resume abc --dangerously-skip-permissions"
+ENV = ARGS + " CMUX_SURFACE_ID=%s HOME=/x" % SURF
+
+
 class TestProcessoConfere(unittest.TestCase):
-    def test_exige_claude_e_a_mesma_aba(self):
-        linha = "/Users/x/.local/bin/claude --resume abc CMUX_SURFACE_ID=%s HOME=/x" % SURF
-        self.assertTrue(encerrar.processo_confere("9", SURF, env_de=lambda p: linha))
-        self.assertTrue(encerrar.processo_confere("9", SURF.lower(), env_de=lambda p: linha))
-        outra = linha.replace(SURF, "B0000002-0000-4000-8000-000000000002")
-        self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: outra))
-        self.assertFalse(encerrar.processo_confere(
-            "9", SURF, env_de=lambda p: "/bin/zsh CMUX_SURFACE_ID=%s" % SURF))
-        self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: ""))
+    def confere(self, args=ARGS, env=ENV, inicio=500.0, agora=500.0, surface=SURF):
+        return encerrar.processo_confere("9", surface, inicio=inicio, args_de=lambda p: args,
+                                         env_de=lambda p: env, inicio_de=lambda p: agora)
+
+    def test_mesmo_claude_da_mesma_aba(self):
+        self.assertTrue(self.confere())
+        self.assertTrue(self.confere(surface=SURF.lower()))
+
+    def test_outra_aba_ou_outro_binario(self):
+        self.assertFalse(self.confere(env=ENV.replace(SURF, "B0000002-0000-4000-8000-000000000002")))
+        self.assertFalse(self.confere(args="/bin/zsh -l"))
+        self.assertFalse(self.confere(args="", env=""))
 
     def test_nao_aceita_variavel_de_outro_nome_nem_o_daemon(self):
-        base = "/Users/x/.local/bin/claude --resume abc OUTRA_CMUX_SURFACE_ID=%s" % SURF
-        self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: base))
-        daemon = "/Users/x/.local/bin/claude daemon run CMUX_SURFACE_ID=%s" % SURF
-        self.assertFalse(encerrar.processo_confere("9", SURF, env_de=lambda p: daemon))
+        self.assertFalse(self.confere(env=ENV.replace(" CMUX_SURFACE_ID", " OUTRA_CMUX_SURFACE_ID")))
+        self.assertFalse(self.confere(args="/Users/x/.local/bin/claude daemon run"))
+
+    def test_o_binario_vem_do_argv_e_nao_do_ambiente(self):
+        """Com `eww`, um claude no PATH do ambiente de um zsh passaria por claude."""
+        self.assertFalse(self.confere(args="/bin/zsh", env="/bin/zsh PATH=/Users/x/.local/bin/claude "
+                                                           "CMUX_SURFACE_ID=%s" % SURF))
+
+    def test_pid_reusado_e_recusado(self):
+        self.assertFalse(self.confere(inicio=500.0, agora=777.0))
+        self.assertFalse(self.confere(inicio=500.0, agora=None))
 
 
 class TestEncerrar(unittest.TestCase):
@@ -140,11 +173,19 @@ class TestConferir(unittest.TestCase):
                                 dormir=r.dormir, relogio=r)
         self.assertEqual(res, {SURF: None})
 
-    def test_painel_que_sumiu_do_autosave_nao_sobe(self):
+    def test_painel_que_sumiu_do_autosave_nao_e_conferido(self):
+        r = Relogio(1000.0)
+        outro = "B0000009-0000-4000-8000-000000000009"
+        res = encerrar.conferir([SURF], depois_de=1000.0, iniciais={SURF},
+                                ler=lambda: (1001.0, {outro: painel(None)}), dormir=r.dormir,
+                                relogio=r, teto=2)
+        self.assertEqual(res, {SURF: "o painel sumiu do autosave"})
+
+    def test_autosave_sem_paineis_de_terminal_nao_confere_nada(self):
         r = Relogio(1000.0)
         res = encerrar.conferir([SURF], depois_de=1000.0, ler=lambda: (1001.0, {}),
-                                dormir=r.dormir, relogio=r)
-        self.assertEqual(res, {SURF: None})
+                                dormir=r.dormir, relogio=r, teto=2)
+        self.assertEqual(res, {SURF: "o autosave nao tem paineis de terminal"})
 
     def test_continua_armada_ate_o_teto(self):
         r = Relogio(1000.0)
