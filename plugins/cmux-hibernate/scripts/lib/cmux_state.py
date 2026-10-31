@@ -306,6 +306,50 @@ def rodar_cmux(*args: str) -> str:
     return r.stdout
 
 
+def _lstart(campos: List[str]) -> Optional[float]:
+    """`ps -o lstart` (LC_ALL=C) em hora local do host -> epoch."""
+    try:
+        return time.mktime(time.strptime(" ".join(campos), "%a %b %d %H:%M:%S %Y"))
+    except (ValueError, OverflowError):
+        return None
+
+
+def _inicios_de_ps(saida: str) -> Dict[str, float]:
+    inicios: Dict[str, float] = {}
+    for linha in saida.splitlines():
+        campos = linha.split()
+        if len(campos) >= 6 and campos[0].isdigit():
+            t = _lstart(campos[1:6])
+            if t is not None:
+                inicios[campos[0]] = t
+    return inicios
+
+
+def _inicio_do_cmux_de_ps(saida: str) -> Optional[float]:
+    for linha in saida.splitlines():
+        campos = linha.split()
+        if len(campos) >= 7 and campos[6].endswith(".app/Contents/MacOS/cmux"):
+            return _lstart(campos[1:6])
+    return None
+
+
+def _ps(*args: str) -> str:
+    env = dict(os.environ, LC_ALL="C")
+    return subprocess.run(["ps", *args], capture_output=True, text=True, env=env).stdout
+
+
+def inicios_de(pids: List[str]) -> Dict[str, float]:
+    """pid -> instante em que o processo nasceu (epoch)."""
+    if not pids:
+        return {}
+    return _inicios_de_ps(_ps("-o", "pid=,lstart=", "-p", ",".join(pids)))
+
+
+def inicio_do_cmux() -> Optional[float]:
+    """Quando o app do cmux que esta aberto nasceu; None se nao esta aberto."""
+    return _inicio_do_cmux_de_ps(_ps("-A", "-ww", "-o", "pid=,lstart=,command="))
+
+
 def versao_do_cmux() -> Optional[str]:
     try:
         return rodar_cmux("--version").strip() or None
