@@ -37,6 +37,8 @@ class Aba:
     transcript: Optional[dict] = None
     estagnada: bool = False
     url: Optional[str] = None
+    pid: Optional[str] = None
+    armada: Optional[str] = None
 
 
 @dataclass
@@ -187,6 +189,7 @@ def complementar_por_binding(estado: Estado, vivos: Dict[str, str]) -> int:
             continue
         aba.sessao = b["checkpoint_id"]
         aba.fonte = "binding"
+        aba.pid = vivos[aba.uuid]
         if not aba.cwd:
             aba.cwd = resolver_cwd(vivos[aba.uuid]) or b.get("cwd")
         preenchidas += 1
@@ -216,6 +219,7 @@ def aplicar_processos(estado: Estado, mapa: Dict[str, dict], cwds: Dict[str, str
             continue
         aba.sessao = info["sessao"]
         aba.fonte = "processo"
+        aba.pid = info["pid"]
         cwd = cwds.get(info["pid"])
         if cwd:
             aba.cwd = cwd
@@ -263,6 +267,16 @@ def cwd_do_transcript(caminho: Path) -> Optional[str]:
     except OSError:
         return None
     return None
+
+
+def anexar_transcript(aba: Aba, raiz: Path = RAIZ_PROJETOS) -> None:
+    caminho = localizar_transcript(aba.sessao, raiz)
+    if caminho:
+        st = caminho.stat()
+        aba.transcript = {"path": str(caminho), "kb": st.st_size // 1024,
+                          "mtime": st.st_mtime}
+        if not aba.cwd:
+            aba.cwd = cwd_do_transcript(caminho)
 
 
 def marcar_estagnadas(estado: Estado, agora: float, stale_days: int = STALE_DAYS) -> None:
@@ -327,15 +341,8 @@ def ler_estado(raiz_projetos: Path = RAIZ_PROJETOS) -> Estado:
     complementar_por_binding(estado, surfaces_com_processo(saida_ps))
 
     for *_, aba in estado.todas_abas():
-        if not aba.sessao:
-            continue
-        caminho = localizar_transcript(aba.sessao, raiz_projetos)
-        if caminho:
-            st = caminho.stat()
-            aba.transcript = {"path": str(caminho), "kb": st.st_size // 1024,
-                              "mtime": st.st_mtime}
-            if not aba.cwd:
-                aba.cwd = cwd_do_transcript(caminho)
+        if aba.sessao:
+            anexar_transcript(aba, raiz_projetos)
 
     marcar_estagnadas(estado, agora=time.time())
     return estado
