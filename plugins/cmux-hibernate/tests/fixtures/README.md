@@ -6,6 +6,8 @@ Saídas reais do ambiente, **sanitizadas**, usadas pelos testes unitários.
 |---|---|---|
 | `tree.txt` | `cmux tree --all --id-format both` | 4 janelas, 12 workspaces, 37 abas |
 | `ps-eww.txt` | `ps eww` por processo Claude | 33 processos com `CMUX_SURFACE_ID` |
+| `autosave.json` | inventado, no formato do autosave do cmux 0.65.2 | 3 workspaces, 8 painéis, um por regra de "armada" |
+| `claude-hook-sessions.json` | inventado, no formato do registro dos hooks | 4 sessões, ociosa, em turno, com trabalho de fundo e esperando |
 
 ## Por que são sanitizadas
 
@@ -16,6 +18,9 @@ UUID, tipos de surface e presença de sessão.
 
 A substituição é **injetora** — identificadores distintos no cru continuam distintos
 no sanitizado. Sem isso, os testes de vínculo sessão↔aba perderiam o sentido.
+
+`autosave.json` e `claude-hook-sessions.json` não vêm de captura: são escritos à mão, com
+ids e títulos inventados, só com os campos que o plugin lê.
 
 ## Regenerar
 
