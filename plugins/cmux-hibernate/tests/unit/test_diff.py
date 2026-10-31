@@ -209,6 +209,16 @@ class TestCompararComPlano(unittest.TestCase):
                      inicio_cmux=CMUX)
         self.assertIn("s4", [x["sessao"] for x in r["subiu_sozinha"]])
 
+    def test_acordada_sem_conferencia_no_hibernate_e_suspeita(self):
+        """Item 4: o ambiente nao distingue o restore do claude digitado; o plano sim."""
+        snap = snap_com_plano()
+        for p in snap["plano"]:
+            if p["surface"] == "U3":
+                p["resultado"] = {"verificado": False, "erro": "continua armada (agent)"}
+        r = comparar(snap, estado_reaberto(), armadas={}, inicios=INICIOS, inicio_cmux=CMUX)
+        self.assertEqual([x["sessao"] for x in r["suspeita"]], ["s3"])
+        self.assertEqual(r["acordada"], [])
+
     def test_sem_inicio_do_cmux_conta_como_subiu_sozinha(self):
         r = comparar(snap_com_plano(), estado_reaberto(), armadas={}, inicios={},
                      inicio_cmux=None)

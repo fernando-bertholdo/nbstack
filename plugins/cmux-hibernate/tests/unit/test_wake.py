@@ -86,7 +86,7 @@ class TestWake(Base):
 
     def test_caso_de_31_10_subiram_sozinhas_nao_e_nada_a_corrigir(self):
         rc = self.rodar(vivos=(1, 2, 3), inicios={"1": CMUX + 3, "2": CMUX + 2, "3": CMUX + 2})
-        self.assertEqual(rc, 0)
+        self.assertEqual(rc, 1)
         self.assertIn("subiu sozinha  2  FALHA", self.saida)
         self.assertIn("22222222", self.saida)
         self.assertNotIn("Nada a corrigir", self.saida)
@@ -131,6 +131,34 @@ class TestWake(Base):
         self.assertEqual(sorted(c.args[0]["sessao"] for c in self.subir.call_args_list),
                          ["22222222", "33333333", "44444444"])
         self.assertIn("Subindo 3 sessoes", self.saida)
+
+    def test_falha_sai_1(self):
+        """Item 12."""
+        rc = self.rodar(vivos=(1, 2), inicios={"1": CMUX + 3, "2": CMUX + 2})
+        self.assertEqual(rc, 1)
+
+    def test_controle_que_nao_subiu_e_falha(self):
+        """Item 6."""
+        rc = self.rodar(vivos=())
+        self.assertEqual(rc, 1)
+        self.assertIn("FALHA: a aba de controle nao subiu", self.saida)
+        self.assertNotIn("Nada a corrigir", self.saida)
+
+    def test_cedo_demais_pede_para_rodar_de_novo(self):
+        """Item 3: o restore leva alguns segundos por aba depois de o cmux abrir."""
+        with mock.patch.object(wake.time, "time", return_value=CMUX + 30):
+            rc = self.rodar()
+        self.assertIn("o restore pode nao ter terminado", self.saida)
+        self.assertNotIn("Nada a corrigir", self.saida)
+        self.assertEqual(rc, 0)
+
+    def test_suspeita_e_falha(self):
+        dados = snap()
+        dados["plano"][1]["resultado"] = {"verificado": False, "erro": "x"}
+        rc = self.rodar(dados=dados, vivos=(1, 2),
+                        inicios={"1": CMUX + 3, "2": calendar.timegm((2026, 10, 31, 5, 52, 0))})
+        self.assertEqual(rc, 1)
+        self.assertIn("suspeita", self.saida)
 
     def test_sem_snapshot_de_apply_sai_2(self):
         self.assertEqual(self.rodar(dados=snap(tipo="dry-run")), 2)

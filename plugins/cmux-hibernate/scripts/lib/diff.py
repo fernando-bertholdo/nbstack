@@ -78,15 +78,16 @@ def comparar(dados: dict, estado, armadas: Optional[Dict[str, str]] = None,
     Com o plano de um --apply (0.3.0), a aba planejada para dormir e' "dormindo" (sem
     processo e sem registro armado), "subiu_sozinha" (processo nascido junto com o cmux:
     o desarme falhou), "acordada" (processo nascido bem depois: alguem a abriu),
-    "nao_dormiu" (processo anterior ao snapshot) ou "armada" (sem processo, mas sobe no
-    proximo fechamento). Sem plano, como ate' a 0.2.0: vivas, dormindo, ausentes."""
+    "nao_dormiu" (processo anterior ao snapshot), "suspeita" (nasceu tarde, mas o hibernate
+    nao a conferiu desarmada) ou "armada" (sem processo, mas sobe no proximo fechamento).
+    Sem plano, como ate' a 0.2.0: vivas, dormindo, ausentes."""
     armadas, inicios = armadas or {}, inicios or {}
     plano = {p["surface"]: p for p in dados.get("plano") or []}
     gerado = ler(dados["gerado_em"]).timestamp() if dados.get("gerado_em") else None
     atuais = {a.uuid: a for *_, a in estado.todas_abas()}
     vivas_agora = {a.sessao for a in atuais.values() if a.sessao and a.fonte == "processo"}
     r = {k: [] for k in ("vivas", "dormindo", "ausentes", "sem_transcript", "subiu_sozinha",
-                         "acordada", "nao_dormiu", "controle", "armada")}
+                         "acordada", "suspeita", "nao_dormiu", "controle", "armada")}
     for j, w, a in _abas_do_snapshot(dados):
         item = {"sessao": a["sessao"], "titulo": a.get("titulo", ""), "cwd": a.get("cwd"),
                 "workspace": w["nome"], "janela": j["uuid"], "ws_uuid": w["uuid"],
@@ -95,6 +96,8 @@ def comparar(dados: dict, estado, armadas: Optional[Dict[str, str]] = None,
         pid = (atual.pid or estado.processos.get(a["uuid"])) if atual is not None else None
         viva = pid is not None or a["sessao"] in vivas_agora
         acao = (plano.get(a["uuid"]) or {}).get("acao")
+        resultado = (plano.get(a["uuid"]) or {}).get("resultado") or {}
+        conferida = resultado.get("verificado")
         if not a.get("transcript"):
             r["sem_transcript"].append(item)
         elif atual is None:
@@ -111,6 +114,11 @@ def comparar(dados: dict, estado, armadas: Optional[Dict[str, str]] = None,
                 r["nao_dormiu"].append(item)
             elif ini - inicio_cmux <= SUBIU_JUNTO:
                 r["subiu_sozinha"].append(item)
+            elif conferida is False:
+                # o hibernate nao conferiu esta aba: o processo tardio pode ser o restore
+                # atrasado. O ambiente nao separa os dois: CMUX_AGENT_RESUME_LAUNCH=1 sai
+                # de todo `claude --resume <id>` pelo wrapper do cmux, digitado ou nao.
+                r["suspeita"].append(item)
             else:
                 r["acordada"].append(item)
         elif viva:

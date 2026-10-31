@@ -90,18 +90,20 @@ class TestProcessoConfere(unittest.TestCase):
         self.assertTrue(self.confere(surface=SURF.lower()))
 
     def test_outra_aba_ou_outro_binario(self):
-        self.assertFalse(self.confere(env=ENV.replace(SURF, "B0000002-0000-4000-8000-000000000002")))
+        outra = "B0000002-0000-4000-8000-000000000002"
+        self.assertFalse(self.confere(env=ENV.replace(SURF, outra)))
         self.assertFalse(self.confere(args="/bin/zsh -l"))
         self.assertFalse(self.confere(args="", env=""))
 
     def test_nao_aceita_variavel_de_outro_nome_nem_o_daemon(self):
-        self.assertFalse(self.confere(env=ENV.replace(" CMUX_SURFACE_ID", " OUTRA_CMUX_SURFACE_ID")))
+        self.assertFalse(self.confere(env=ENV.replace(" CMUX_SURFACE_ID",
+                                                      " OUTRA_CMUX_SURFACE_ID")))
         self.assertFalse(self.confere(args="/Users/x/.local/bin/claude daemon run"))
 
     def test_o_binario_vem_do_argv_e_nao_do_ambiente(self):
         """Com `eww`, um claude no PATH do ambiente de um zsh passaria por claude."""
-        self.assertFalse(self.confere(args="/bin/zsh", env="/bin/zsh PATH=/Users/x/.local/bin/claude "
-                                                           "CMUX_SURFACE_ID=%s" % SURF))
+        env = "/bin/zsh PATH=/Users/x/.local/bin/claude CMUX_SURFACE_ID=%s" % SURF
+        self.assertFalse(self.confere(args="/bin/zsh", env=env))
 
     def test_pid_reusado_e_recusado(self):
         self.assertFalse(self.confere(inicio=500.0, agora=777.0))

@@ -51,7 +51,8 @@ def motivo_ocupada(sessao: str, transcript_mtime, hooks: Dict[str, dict], agora:
     de permissao ou trabalho de fundo (subagente). O transcript nao e' escrito durante uma
     ferramenta longa; o registro do hook cobre esse caso quando existe. `error` so' conta
     se for recente: senao uma aba que errou uma vez ficaria pulada para sempre."""
-    mtimes = transcript_mtime if isinstance(transcript_mtime, (list, tuple)) else [transcript_mtime]
+    mtimes = (transcript_mtime if isinstance(transcript_mtime, (list, tuple))
+              else [transcript_mtime])
     mtimes = [m for m in mtimes if m is not None]
     if mtimes and agora - max(mtimes) < janela:
         return "transcript escrito ha %d s" % max(0, int(agora - max(mtimes)))

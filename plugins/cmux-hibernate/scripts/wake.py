@@ -5,6 +5,9 @@ Compara aba a aba o plano do hibernate com o estado real: processos, o instante 
 que cada um nasceu e o autosave do cmux. Roda direto no terminal, sem depender de
 sessao Claude — precondicao do cenario de resgate, em que nenhuma existe —, e roda
 sem terminal interativo, que e' como o agente o chama.
+
+Saida: 0 sem falha; 1 com alguma FALHA (subiu sozinha, nao dormiu, suspeita, ou a aba
+de controle que nao subiu); 2 em erro de leitura ou de argumento.
 """
 import argparse
 import sys
@@ -20,6 +23,8 @@ from lib.cmux_state import inicio_do_cmux, inicios_de, ler_estado  # noqa: E402
 from lib.diff import MAX_SNAPSHOT_AGE, carregar_snapshot, comparar, idade_em_dias  # noqa: E402
 from lib.restore import criar_workspace, filtrar_alvo, planejar_rebuild, subir  # noqa: E402
 from lib.snapshot import BASE_ESTADO  # noqa: E402
+
+RESTORE_EM_CURSO = 120  # s depois de o cmux abrir em que o restore ainda pode estar rodando
 
 
 def _hora(epoch) -> str:
@@ -73,6 +78,12 @@ def main() -> int:
                   % args.max_age)
     if dados.get("tipo") == "dry-run":
         print("  aviso: e' um dry-run; nada foi encerrado nele")
+    cedo = cmux is not None and time.time() - cmux < RESTORE_EM_CURSO
+    if cedo:
+        print("  O cmux abriu ha %d s: o restore pode nao ter terminado. Rode de novo em uns"
+              " 2 min." % (time.time() - cmux))
+    if not dados.get("concluido", True):
+        print("  aviso: o --apply deste snapshot nao chegou ao fim")
     if cmux is not None and cmux < ler(dados["gerado_em"]).timestamp():
         print("  O cmux nao foi reaberto desde este snapshot: a conferencia que vale e' a de"
               " depois do Cmd+Q.")
@@ -80,9 +91,12 @@ def main() -> int:
     r = comparar(dados, estado, armadas or {}, inicios, cmux)
     viva = [x for x in r["controle"] if x["viva"]]
     print("\n  dormindo       %d  (sem processo e desarmadas)" % len(r["dormindo"]))
-    if r["controle"]:
-        print("  controle       %d  (%s)" % (len(r["controle"]),
-                                            "rodando" if viva else "nao subiu"))
+    if r["controle"] and viva:
+        print("  controle       %d  (rodando)" % len(r["controle"]))
+    elif r["controle"]:
+        print("  controle       %d  FALHA: a aba de controle nao subiu; veja se o shell dela "
+              "mostra 'conflict'" % len(r["controle"]))
+        _listar(r["controle"])
     if r["vivas"]:
         print("  rodando        %d  (fora do plano de dormir)" % len(r["vivas"]))
     if r["subiu_sozinha"]:
@@ -93,6 +107,10 @@ def main() -> int:
         print("  nao dormiu     %d  FALHA: o processo e' anterior ao hibernate"
               % len(r["nao_dormiu"]))
         _listar(r["nao_dormiu"])
+    if r["suspeita"]:
+        print("  suspeita       %d  FALHA provavel: nasceu depois do restore, mas o hibernate"
+              " nao a conferiu desarmada" % len(r["suspeita"]))
+        _listar(r["suspeita"], lambda x: "  ·  processo desde %s" % _hora(x["hora"]))
     if r["acordada"]:
         print("  acordada       %d  (e ficou armada para o proximo fechamento)"
               % len(r["acordada"]))
@@ -107,8 +125,9 @@ def main() -> int:
     if r["sem_transcript"]:
         print("  sem transcript %d  (nao restauraveis)" % len(r["sem_transcript"]))
 
-    problema = (r["ausentes"] or r["subiu_sozinha"] or r["nao_dormiu"] or r["armada"]
-                or armadas is None)
+    falha = bool(r["subiu_sozinha"] or r["nao_dormiu"] or r["suspeita"]
+                 or (r["controle"] and not viva))
+    problema = (falha or r["ausentes"] or r["armada"] or armadas is None or cedo)
     if not problema and not args.up and not args.rebuild:
         print("\n  Nada a corrigir.")
     if r["dormindo"] and not args.up:
@@ -129,7 +148,7 @@ def main() -> int:
                                           "ok" if criar_workspace(p) else "falhou"))
             print("\n  %d workspaces processados." % len(plano))
 
-    return 0
+    return 1 if falha else 0
 
 
 if __name__ == "__main__":
