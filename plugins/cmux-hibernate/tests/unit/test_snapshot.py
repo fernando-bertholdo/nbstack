@@ -69,6 +69,17 @@ class TestSnapshot(unittest.TestCase):
             self.assertEqual(destino.name, "2026-10-04T01-30-05Z")
 
 
+class TestComandoDoInventario(unittest.TestCase):
+    def test_cwd_com_aspas_e_espaco_vai_citado(self):
+        """Uma pasta com apostrofo quebrava o comando colado no terminal."""
+        e = estado_exemplo()
+        e.janelas[0].workspaces[0].panes[0].abas[0].cwd = "/tmp/o'neil dir"
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = gravar(serializar(e, None, 7), pathlib.Path(tmp))
+            texto = (destino / "INVENTARIO.md").read_text()
+        self.assertIn("cd '/tmp/o'\"'\"'neil dir' && claude --resume", texto)
+
+
 class TestDryRun(unittest.TestCase):
     """O dry-run nao entra na retencao dos 5 nem e' o que o wake compara (F6, F5)."""
 

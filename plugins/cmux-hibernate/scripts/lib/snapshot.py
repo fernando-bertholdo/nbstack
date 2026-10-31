@@ -12,6 +12,7 @@ cada dry-run sobrescreve e que nem a retencao nem o wake escolhem.
 from pathlib import Path
 from typing import List, Optional
 import json
+import shlex
 import shutil
 
 from lib.carimbo import (agora_utc, instante_do_nome, ler, mais_recentes_primeiro, mostrar,
@@ -78,8 +79,9 @@ def _inventario(d: dict) -> str:
                 marca = " *(estagnada)*" if a.get("estagnada") else ""
                 linhas.append("- " + (a["titulo"] or "sem titulo")[:70] + marca)
                 linhas.append("  ```")
-                linhas.append("  cd '%s' && claude --resume %s --dangerously-skip-permissions"
-                              % (a.get("cwd") or "~", a["sessao"]))
+                cwd = shlex.quote(a["cwd"]) if a.get("cwd") else "~"
+                linhas.append("  cd %s && claude --resume %s --dangerously-skip-permissions"
+                              % (cwd, shlex.quote(a["sessao"])))
                 linhas.append("  ```")
             linhas.append("")
     return "\n".join(linhas)
