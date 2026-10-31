@@ -4,8 +4,12 @@ import unittest
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "scripts"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from fuso import FusoFixo  # noqa: E402
 from lib.cmux_state import (  # noqa: E402
     Estado,
+    _inicios_de_ps,
+    _inicio_do_cmux_de_ps,
     aplicar_processos,
     detectar_duplicatas,
     parse_processos,
@@ -66,6 +70,56 @@ class TestProcessos(unittest.TestCase):
         ]
         mapa = parse_processos("\n".join(linhas))
         self.assertEqual(detectar_duplicatas(mapa), ["dddddddd-1111-2222-3333-444444444444"])
+
+
+
+class TestPrincipal(unittest.TestCase):
+    """Varios claude na mesma aba: o principal e' o que nao descende de outro claude."""
+
+    A = "AAAAAAAA-1111-2222-3333-444444444444"
+    LINHAS = "\n".join([
+        "10 /Users/x/.local/bin/claude --resume aaaaaaaa-1111-2222-3333-444444444444 "
+        "CMUX_SURFACE_ID=%s" % A,
+        "30 /Users/x/.local/bin/claude -p resumo CMUX_SURFACE_ID=%s" % A,
+        "40 /Users/x/.local/bin/claude --resume bbbbbbbb-1111-2222-3333-444444444444 "
+        "CMUX_SURFACE_ID=BBBBBBBB-1111-2222-3333-444444444444"])
+    PAIS = {"30": "20", "20": "10", "10": "5", "5": "1", "40": "6", "6": "1"}
+
+    def test_lista_todos_os_claude_por_aba(self):
+        from lib.cmux_state import claudes_por_surface
+        self.assertEqual(claudes_por_surface(self.LINHAS)[self.A], ["10", "30"])
+
+    def test_filho_aninhado_sai_e_o_principal_fica(self):
+        from lib.cmux_state import so_principais
+        saida = so_principais(self.LINHAS, ppid=self.PAIS.get)
+        self.assertEqual([l.split()[0] for l in saida.splitlines()], ["10", "40"])
+        self.assertEqual(parse_processos(saida)[self.A]["pid"], "10")
+
+    def test_sem_como_ler_os_pais_fica_o_primeiro(self):
+        from lib.cmux_state import so_principais
+        saida = so_principais(self.LINHAS, ppid=lambda p: None)
+        self.assertEqual([l.split()[0] for l in saida.splitlines()], ["10", "40"])
+
+
+class TestInicios(FusoFixo, unittest.TestCase):
+    """`ps -o lstart` sai na hora local do host: o fuso fixo confere a conta."""
+
+    FUSO = "America/Sao_Paulo"
+
+    def test_le_pid_e_lstart(self):
+        saida = "  101 Sat Oct 31 02:37:54 2026\n 2002 Sat Oct 31 02:52:00 2026\n"
+        self.assertEqual(_inicios_de_ps(saida), {"101": 1793425074.0, "2002": 1793425920.0})
+
+    def test_ignora_linha_estranha(self):
+        self.assertEqual(_inicios_de_ps("lixo\n  7 Sat Foo 99\n"), {})
+
+    def test_inicio_do_cmux_e_o_do_app(self):
+        saida = ("  500 Sat Oct 31 01:00:00 2026     /usr/bin/zsh\n"
+                 "89502 Sat Oct 31 02:37:52 2026     /Applications/cmux.app/Contents/MacOS/cmux\n"
+                 "  600 Sat Oct 31 02:38:00 2026     /Applications/cmux.app/Contents/Resources"
+                 "/bin/cmux tree\n")
+        self.assertEqual(_inicio_do_cmux_de_ps(saida), 1793425072.0)
+        self.assertIsNone(_inicio_do_cmux_de_ps("  500 Sat Oct 31 01:00:00 2026  /bin/zsh\n"))
 
 
 if __name__ == "__main__":
