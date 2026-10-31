@@ -23,6 +23,7 @@ import json
 CAMINHO_AUTOSAVE = (Path.home() / "Library" / "Application Support" / "cmux"
                     / "session-com.cmuxterm.app.json")
 CAMINHO_HOOKS = Path.home() / ".cmuxterm" / "claude-hook-sessions.json"
+VERSAO_MEDIDA = "0.65.2"  # a versao do cmux em que esta mecanica foi lida e medida
 
 
 @dataclass

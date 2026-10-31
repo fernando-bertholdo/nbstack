@@ -98,13 +98,15 @@ class TestExecutar(unittest.TestCase):
 
     def rodar(self, conferencias, nao_sai=(), confere=True, ocupada=None):
         plano = planejar(padrao(), controle="CTRL", agora=1000.0, hooks={}, protegidos={"600"})
+        for p in plano:
+            p["inicio"] = 1.0 if p["pid"] else None
         paineis = {p["surface"]: Painel(surface=p["surface"], janela="W", workspace="S",
                                         sessao=p["sessao"], cwd=None, armado="agent")
                    for p in plano}
         self.encerrar = mock.Mock(return_value=set(nao_sai))
         self.limpar = mock.Mock(return_value="OK")
         self.conferir = mock.Mock(side_effect=list(conferencias))
-        executar(plano, paineis, confere=lambda pid, s: confere,
+        executar(plano, paineis, confere=lambda pid, s, inicio: confere,
                  encerrar_fn=self.encerrar, limpar_fn=self.limpar, conferir_fn=self.conferir,
                  ocupada_fn=lambda item: ocupada, agora=lambda: 1000.0)
         return {p["surface"]: p for p in plano}
@@ -115,7 +117,7 @@ class TestExecutar(unittest.TestCase):
         self.assertTrue(r["OCIOSA"]["resultado"]["verificado"])
         self.assertEqual(r["ARMADA"]["resultado"]["metodo"], "rpc")
         self.assertTrue(r["ARMADA"]["resultado"]["verificado"])
-        self.assertTrue(r["DORME"]["resultado"]["verificado"])
+        self.assertIsNone(r["DORME"]["resultado"])  # quem confere e' a conferencia_final
         self.assertFalse(r["OCUPADA"]["resultado"]["verificado"])
         self.assertIsNone(r["CTRL"]["resultado"])
         self.encerrar.assert_called_once_with(["200"])
@@ -149,14 +151,27 @@ class TestExecutar(unittest.TestCase):
     def test_rpc_que_explode_nao_derruba_o_apply(self):
         """Sem cmux no PATH ou com timeout, o rpc levanta; a conferencia decide o resultado."""
         plano = planejar(padrao(), controle="CTRL", agora=1000.0, hooks={}, protegidos={"600"})
+        for p in plano:
+            p["inicio"] = 1.0 if p["pid"] else None
         limpar = mock.Mock(side_effect=RuntimeError("cmux nao encontrado"))
-        executar(plano, {}, confere=lambda pid, s: True, encerrar_fn=lambda pids: set(),
-                 limpar_fn=limpar, conferir_fn=lambda ss, depois_de: {
+        executar(plano, {}, confere=lambda pid, s, inicio: True, encerrar_fn=lambda pids: set(),
+                 limpar_fn=limpar, conferir_fn=lambda ss, depois_de, iniciais: {
                      s: "continua armada (agent)" for s in ss},
                  agora=lambda: 1000.0)
         r = {p["surface"]: p["resultado"] for p in plano}
         self.assertFalse(r["ARMADA"]["verificado"])
         self.assertIn("cmux nao encontrado", r["ARMADA"]["erro"])
+
+    def test_pid_sem_instante_de_nascimento_nao_recebe_sinal(self):
+        """Sem o lstart da leitura inicial nao ha como barrar pid reusado."""
+        plano = planejar(padrao(), controle="CTRL", agora=1000.0, hooks={}, protegidos={"600"})
+        encerrar = mock.Mock(return_value=set())
+        executar(plano, {}, confere=lambda *a: True, encerrar_fn=encerrar,
+                 limpar_fn=mock.Mock(), conferir_fn=lambda ss, depois_de, iniciais: {},
+                 agora=lambda: 1000.0)
+        encerrar.assert_called_once_with([])
+        item = next(p for p in plano if p["surface"] == "OCIOSA")
+        self.assertIn("nasceu", item["resultado"]["erro"])
 
     def test_sessao_que_entrou_em_turno_e_pulada_na_hora(self):
         r = self.rodar([{"ARMADA": None}], ocupada="transcript escrito ha 2 s")

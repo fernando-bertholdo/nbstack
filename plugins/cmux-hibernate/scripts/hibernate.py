@@ -9,32 +9,36 @@ quando todas as abas-alvo foram conferidas desarmadas.
 
 Saida: 0 no caminho normal; 1 quando alguma aba-alvo nao foi conferida desarmada
 (no dry-run, so' com --surface, quando a aba pedida nao seria); 2 em erro de leitura
-do cmux ou de argumento.
+do cmux ou de argumento; 3 quando so' falta a sessao que roda o comando sair com /exit.
 """
 import argparse
 import os
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import cmux_state  # noqa: E402
-from lib.autosave import ler_autosave, ler_hooks  # noqa: E402
+from lib.autosave import VERSAO_MEDIDA, ler_autosave, ler_hooks  # noqa: E402
 from lib.bindings import abas_que_casam  # noqa: E402
 from lib.cmux_state import (  # noqa: E402
     STALE_DAYS,
     _ps_eww,
     detectar_duplicatas,
     ler_estado,
+    inicios_de,
     parse_processos,
+    so_principais,
     versao_do_cmux,
 )
-from lib.diff import ultimo_para_inventario  # noqa: E402
-from lib.encerrar import ancestrais, motivo_ocupada  # noqa: E402
+from lib.diff import ultimo_apply, ultimo_para_inventario  # noqa: E402
+from lib.encerrar import ancestrais, ler_fresco, motivo_ocupada  # noqa: E402
 from lib.inventario import completar_inventario  # noqa: E402
 from lib.plano import (  # noqa: E402
-    CONTROLE, DORMINDO, ENCERRAR, LIMPAR, PULAR, executar, marcar_erro, para_snapshot, planejar)
+    CONTROLE, DORMINDO, ENCERRAR, LIMPAR, PULAR, conferencia_final, executar, marcar_erro,
+    para_snapshot, pendente, planejar)
 from lib.snapshot import (  # noqa: E402
     BASE_ESTADO, aplicar_retencao, gravar, gravar_dry_run, serializar)
 
@@ -56,8 +60,37 @@ def _ocupada_agora(hooks):
             mtime = os.stat(caminho).st_mtime if caminho else None
         except OSError:
             mtime = None
-        return motivo_ocupada(item["sessao"], mtime, ler_hooks() or hooks, time.time())
+        return motivo_ocupada(item["sessao"], [mtime, _mais_recente_do_projeto(caminho)],
+                              ler_hooks() or hooks, time.time(), surface=item["surface"])
     return ver
+
+
+_SESSOES_DE_ABA: set = set()
+
+
+def _mais_recente_do_projeto(transcript: Optional[str]) -> Optional[float]:
+    """mtime do .jsonl mais recente do projeto da sessao (o diretorio do transcript),
+    fora os das sessoes que outra aba tem. Depois de um /clear a aba escreve num arquivo
+    novo, que nenhuma aba conhece; o de uma aba irma do mesmo projeto nao conta."""
+    if not transcript:
+        return None
+    proprio = Path(transcript)
+    try:
+        return max((p.stat().st_mtime for p in proprio.parent.glob("*.jsonl")
+                    if p == proprio or p.stem not in _SESSOES_DE_ABA), default=None)
+    except OSError:
+        return None
+
+
+def _herdados(base: Path, so_aba: Optional[str], estado) -> list:
+    """Com --surface, as outras abas herdam o plano do ultimo --apply: senao o wake
+    perderia a cobertura delas. Herdado nao e' alvo: nada e' feito nele agora."""
+    if so_aba is None:
+        return []
+    anterior = ultimo_apply(base) or {}
+    existem = {a.uuid for *_, a in estado.todas_abas()}
+    return [dict(p, herdado=True) for p in anterior.get("plano") or []
+            if p.get("surface") != so_aba and p.get("surface") in existem]
 
 
 def main() -> int:
@@ -75,6 +108,7 @@ def main() -> int:
                     help="diretorio dos snapshots (padrao: %(default)s)")
     args = ap.parse_args()
 
+    inicio_comando = time.time()
     try:
         estado = ler_estado()
         _, paineis = ler_autosave()
@@ -99,11 +133,22 @@ def main() -> int:
 
     controle = None if args.all else (os.environ.get("CMUX_SURFACE_ID") or "").upper() or None
     abas = [a for *_, a in estado.todas_abas() if a.sessao]
-    duplicadas = detectar_duplicatas(parse_processos(_ps_eww()))
-    plano = planejar(estado, controle, duplicadas, so_aba, ancestrais(), hooks)
+    duplicadas = detectar_duplicatas(parse_processos(so_principais(_ps_eww())))
+    _SESSOES_DE_ABA.clear()
+    _SESSOES_DE_ABA.update(a.sessao for a in abas)
+    plano = planejar(estado, controle, duplicadas, so_aba, ancestrais(), hooks,
+                     projeto_mtime=_mais_recente_do_projeto)
     transcripts = {a.uuid: a.transcript for a in abas}
+    inicios = inicios_de([p["pid"] for p in plano if p["pid"]])
     for p in plano:
         p["_transcript"] = transcripts.get(p["surface"])
+        p["inicio"] = inicios.get(p["pid"]) if p["pid"] else None
+    herdados = _herdados(args.estado, so_aba, estado)
+
+    versao = versao_do_cmux()
+    if versao and VERSAO_MEDIDA not in versao:
+        print("aviso: %s; a mecanica do desarme foi medida no cmux %s e pode ter mudado"
+              % (versao, VERSAO_MEDIDA), file=sys.stderr)
 
     print("Estado real: %d sessoes em %d workspaces, %d janelas" % (
         len(abas), sum(len(j.workspaces) for j in estado.janelas), len(estado.janelas)))
@@ -134,39 +179,62 @@ def main() -> int:
               % (conta[ENCERRAR], conta[LIMPAR], conta[PULAR], conta[DORMINDO]))
         print("  Use --apply para valer. Nada foi encerrado nem escrito no cmux.")
         print("\n  Inventario do dry-run (fora da retencao): %s" % destino)
+        if so_aba is not None and any(pendente(p) for p in plano):
+            print("  A aba pedida e' a desta sessao: o --apply nao a encerra. Saia dela com"
+                  " /exit, que desarma a aba.")
+            return 3
         if so_aba is not None and any(p["acao"] == PULAR for p in plano):
             print("  A aba pedida seria pulada e continuaria armada.", file=sys.stderr)
             return 1
         return 0
 
+    dados = serializar(estado, controle_snap, args.stale_days, tipo="apply",
+                       plano=_limpo(plano) + herdados, escopo=escopo_nome, versao_cmux=versao)
+    dados["concluido"] = False
+    destino = gravar(dados, args.estado)  # antes dos sinais: o plano ja fica registrado
+    fora = []
     try:
         executar(plano, paineis, ocupada_fn=_ocupada_agora(hooks))
+        fora = conferencia_final(plano, paineis, inicio_comando, controle, so_aba is None,
+                                 _ps_eww, ler_fresco)
+        dados["concluido"] = True
     except Exception as e:  # o que ja foi encerrado tem de chegar ao snapshot
         print("erro no --apply: %s: %s" % (type(e).__name__, e), file=sys.stderr)
         marcar_erro(plano, "erro no --apply antes da conferencia: %s" % e)
-    dados = serializar(estado, controle_snap, args.stale_days, tipo="apply",
-                       plano=_limpo(plano), escopo=escopo_nome, versao_cmux=versao_do_cmux())
-    destino = gravar(dados, args.estado)
-    aplicar_retencao(args.estado)
+    except BaseException:
+        marcar_erro(plano, "--apply interrompido antes da conferencia")
+        raise
+    finally:
+        dados["plano"] = _limpo(plano) + herdados
+        gravar(dados, args.estado)
+        aplicar_retencao(args.estado)
 
     alvos = [p for p in plano if p["acao"] != CONTROLE]
-    falhas = [p for p in alvos if not p["resultado"]["verificado"]]
-    print("\n  Resultado, conferido no autosave do cmux:")
+    pendentes = [p for p in alvos if pendente(p)]
+    falhas = [p for p in alvos if not pendente(p) and not p["resultado"]["verificado"]]
+    print("\n  Resultado, conferido no autosave do cmux e no ps:")
     for p in alvos:
         r = p["resultado"]
-        print("    %-7s %s  %-40s %s" % ("ok" if r["verificado"] else "FALHOU", p["sessao"][:8],
-                                         (p["titulo"] or "")[:40],
-                                         r["erro"] or _feito(p)))
-    print("\n  Desarmadas e conferidas: %d de %d abas-alvo" % (len(alvos) - len(falhas),
-                                                              len(alvos)))
+        rotulo = "PENDENTE" if pendente(p) else ("ok" if r["verificado"] else "FALHOU")
+        print("    %-8s %s  %-40s %s" % (rotulo, p["sessao"][:8], (p["titulo"] or "")[:40],
+                                          r["erro"] or _feito(p)))
+    for f in fora:
+        print("    FALHOU   %s" % f)
+    print("\n  Desarmadas e conferidas: %d de %d abas-alvo" % (
+        len(alvos) - len(falhas) - len(pendentes), len(alvos)))
     if any(p["acao"] == CONTROLE for p in plano):
         print("  Esta aba continua armada: e' a unica que sobe quando o cmux reabrir.")
     print("\n  Snapshot: %s" % destino)
-    if falhas:
-        print("\n  Nao de Cmd+Q ainda: %d abas podem subir sozinhas ao reabrir." % len(falhas),
-              file=sys.stderr)
+    if falhas or fora:
+        print("\n  Nao de Cmd+Q ainda: %d abas podem subir sozinhas ao reabrir."
+              % (len(falhas) + len(fora)), file=sys.stderr)
         print("  Resolva as que FALHOU e rode de novo.", file=sys.stderr)
         return 1
+    if pendentes:
+        print("\n  Falta um passo: saia desta sessao com /exit. O /exit encerra o claude e o hook")
+        print("  SessionEnd desarma a aba. Depois disso, pode dar Cmd+Q; espere uns 10 s antes")
+        print("  de reabrir o cmux.")
+        return 3
     print("\n  Pode dar Cmd+Q. Nao abra as abas encerradas antes disso: abrir rearma a aba.")
     print("  Depois do Cmd+Q, espere uns 10 s antes de reabrir o cmux.")
     return 0

@@ -129,6 +129,15 @@ class TestApply(Base):
         self.assertIn("ocupada: transcript escrito ha", self.plano()[uuid(3)]["motivo"])
         self.assertNotIn("Pode dar Cmd+Q", self.saida)
 
+    def test_clear_noutro_jsonl_do_projeto_e_ocupada(self):
+        """Depois de um /clear, a aba escreve num .jsonl que nenhuma aba conhece."""
+        self.cmux = CmuxFalso(self.tmp.name, PADRAO)
+        novo = self.cmux.raiz / "proj" / "99999999-0000-4000-8000-000000000000.jsonl"
+        novo.write_text("{}\n")
+        rc = self.rodar("--apply", abas=PADRAO)
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.cmux.sinais, [])
+
     def test_processo_que_nao_sai_falha_sem_sigkill(self):
         rc = self.rodar("--apply", nao_sai={"200"})
         self.assertEqual(rc, 1)
@@ -169,6 +178,100 @@ class TestErro(Base):
         self.assertIn("quebrou", p[uuid(2)]["resultado"]["erro"])
 
 
+class TestConferenciaFinal(Base):
+    """Item 2 da revisao: o Cmd+Q depende de um autosave relido e de um ps novo."""
+
+    def test_claude_vivo_fora_do_plano_segura_o_cmd_q(self):
+        linha = "777 /Users/x/.local/bin/claude --resume x CMUX_SURFACE_ID=%s" % uuid(9)
+        rc = self.rodar("--apply", extra_ps=[linha])
+        self.assertEqual(rc, 1)
+        self.assertIn("claude vivo na aba %s (pid 777), fora do plano" % uuid(9), self.saida)
+
+    def test_aba_armada_fora_da_arvore_segura_o_cmd_q(self):
+        abas = PADRAO + [{"n": 6}]
+        rc = self.rodar("--apply", abas=abas, fora_da_arvore={6})
+        self.assertEqual(rc, 1)
+        self.assertIn("aba %s armada (agent), fora do plano" % uuid(6), self.saida)
+
+    def test_dormindo_e_conferida_no_autosave_relido(self):
+        """A aba que ja dormia e foi rearmada durante o --apply nao passa."""
+        abas = PADRAO[:4] + [{"n": 7, "armada": False}]
+        self.estado_dir.mkdir()
+        d = self.estado_dir / "2026-10-30T10-00-00Z"
+        d.mkdir()
+        (d / "snapshot.json").write_text(json.dumps({"tipo": "apply", "janelas": [
+            {"uuid": "W", "workspaces": [{"uuid": "S", "panes": [{"uuid": "P", "abas": [
+                {"uuid": uuid(7), "sessao": sessao(7), "cwd": "/tmp"}]}]}]}]}))
+        rc = self.rodar("--apply", abas=abas, rearmar={7})
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.plano()[uuid(7)]["acao"], "dormindo")
+        self.assertIn("continua armada", self.plano()[uuid(7)]["resultado"]["erro"])
+
+    def test_autosave_que_nao_regrava_nao_confere(self):
+        rc = self.rodar("--apply", abas=[{"n": 1, "pid": "100"}, {"n": 4}],
+                        autosave_parado=True, rpc_limpa=False)
+        self.assertEqual(rc, 1)
+        self.assertIn("nao regravou", self.plano()[uuid(4)]["resultado"]["erro"])
+
+    def test_painel_que_some_do_autosave_nao_confere(self):
+        rc = self.rodar("--apply", some={3})
+        self.assertEqual(rc, 1)
+        self.assertIn("sumiu do autosave", self.plano()[uuid(3)]["resultado"]["erro"])
+
+    def test_claude_aninhado_que_sobrevive_nao_confere(self):
+        """Item 8: o SIGTERM vai so' ao principal, e a aba so' passa sem claude nenhum."""
+        abas = [{"n": 1, "pid": "100"}, {"n": 2, "pid": "200", "filhos": ["210"]}]
+        rc = self.rodar("--apply", abas=abas, filho_sobrevive=True)
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.cmux.sinais, [("200", signal.SIGTERM)])
+        self.assertIn("ainda ha claude na aba (pid 210)",
+                      self.plano()[uuid(2)]["resultado"]["erro"])
+
+    def test_claude_aninhado_que_sai_com_o_pai_passa(self):
+        abas = [{"n": 1, "pid": "100"}, {"n": 2, "pid": "200", "filhos": ["210"]}]
+        self.assertEqual(self.rodar("--apply", abas=abas), 0, self.erro)
+        self.assertEqual(self.cmux.sinais, [("200", signal.SIGTERM)])
+
+    def test_pid_reusado_nao_recebe_sinal(self):
+        """Item 14: o lstart tem de ser o da leitura inicial."""
+        rc = self.rodar("--apply", reusa_pid={"200"})
+        self.assertEqual(rc, 1)
+        self.assertNotIn("200", [p for p, _ in self.cmux.sinais])
+        self.assertIn("mudou desde a leitura", self.plano()[uuid(2)]["resultado"]["erro"])
+
+    def test_versao_diferente_da_medida_avisa(self):
+        self.rodar(versao="cmux 0.66.0 (falso)")
+        self.assertIn("medida no cmux 0.65.2", self.erro)
+
+
+class TestSnapshotParcial(Base):
+    """Item 11: o plano vai ao disco antes do primeiro sinal."""
+
+    def test_snapshot_existe_antes_do_sigterm(self):
+        vistos = []
+        self.cmux = None
+        original = CmuxFalso.kill
+
+        def kill(eu, pid, sinal):
+            if sinal == signal.SIGTERM:
+                vistos.append(self.snapshot()["concluido"])
+            return original(eu, pid, sinal)
+
+        with mock.patch.object(CmuxFalso, "kill", kill):
+            self.assertEqual(self.rodar("--apply"), 0, self.erro)
+        self.assertEqual(vistos, [False, False])
+        self.assertTrue(self.snapshot()["concluido"])
+
+    def test_interrupcao_grava_o_snapshot_e_propaga(self):
+        boom = mock.Mock(side_effect=KeyboardInterrupt)
+        with mock.patch.object(hibernate, "executar", boom):
+            with self.assertRaises(KeyboardInterrupt):
+                self.rodar("--apply")
+        p = self.plano()
+        self.assertIn("interrompido", p[uuid(2)]["resultado"]["erro"])
+        self.assertFalse(self.snapshot()["concluido"])
+
+
 class TestEscopo(Base):
     def test_all_inclui_o_controle(self):
         rc = self.rodar("--apply", "--all")
@@ -178,7 +281,9 @@ class TestEscopo(Base):
 
     def test_all_pula_a_sessao_que_roda_o_comando(self):
         rc = self.rodar("--apply", "--all", protegidos={"100"})
-        self.assertEqual(rc, 1)
+        self.assertEqual(rc, 3)
+        self.assertIn("saia desta sessao com /exit", self.saida)
+        self.assertNotIn("FALHOU", self.saida)
         self.assertNotIn("100", [p for p, _ in self.cmux.sinais])
         self.assertIn("/exit", self.plano()[CTRL]["motivo"])
 
@@ -196,6 +301,31 @@ class TestEscopo(Base):
         self.assertEqual(rc, 0, self.erro)
         self.assertEqual(self.cmux.sinais, [("100", signal.SIGTERM)])
         self.assertIsNone(self.snapshot()["aba_de_controle"])
+
+    def test_surface_na_propria_sessao_pede_exit_sem_falhou(self):
+        """Item 7: rodando dentro da aba pedida, o claude dela e' ancestral do comando."""
+        rc = self.rodar("--apply", "--surface", CTRL, protegidos={"100", "4242", "1"})
+        self.assertEqual(rc, 3)
+        self.assertEqual(self.cmux.sinais, [])
+        self.assertIn("PENDENTE", self.saida)
+        self.assertIn("saia desta sessao com /exit", self.saida)
+        self.assertNotIn("FALHOU", self.saida + self.erro)
+        rc = self.rodar("--surface", CTRL, protegidos={"100", "4242", "1"})
+        self.assertEqual(rc, 3)
+        self.assertIn("/exit", self.saida + self.erro)
+
+    def test_surface_herda_o_plano_das_outras_abas(self):
+        """Item 5: um --surface depois do --apply geral nao apaga a cobertura do wake."""
+        self.rodar("--apply")
+        with mock.patch("lib.snapshot.agora_utc", return_value="2099-01-01T00:00:00Z"):
+            self.rodar("--apply", "--surface", "surface:1", abas=[
+                {"n": 1, "pid": "100"}, {"n": 2, "armada": False}, {"n": 3, "armada": False},
+                {"n": 4, "armada": False}])
+        p = self.plano()
+        self.assertEqual(self.snapshot()["escopo"], "surface")
+        self.assertEqual(p[CTRL]["acao"], "encerrar")
+        self.assertTrue(p[uuid(2)]["herdado"])
+        self.assertEqual(p[uuid(2)]["acao"], "encerrar")
 
     def test_surface_numa_aba_armada_sem_processo(self):
         rc = self.rodar("--apply", "--surface", "surface:4")
