@@ -12,15 +12,36 @@ from lib.carimbo import ler, mais_recentes_primeiro
 MAX_SNAPSHOT_AGE = 3
 
 
+def _aplicados(base: Path):
+    """Os snapshots de --apply, do mais recente ao mais antigo. Dry-run e snapshot sem
+    tipo (gravado ate' a 0.2.0, quando dry-run e --apply nao se distinguiam) ficam fora."""
+    if not base.exists():
+        return
+    for d in mais_recentes_primeiro([d for d in base.iterdir() if (d / "snapshot.json").exists()]):
+        try:
+            dados = json.loads((d / "snapshot.json").read_text())
+        except (OSError, ValueError):
+            continue
+        if dados.get("tipo") == "apply":
+            yield dados, d
+
+
 def carregar_snapshot(base: Path, escolhido: Optional[Path] = None) -> Tuple[dict, Path]:
     if escolhido:
-        return json.loads((escolhido / "snapshot.json").read_text()), escolhido
-    if not base.exists():
-        raise RuntimeError("nenhum snapshot em %s — rode o hibernate antes" % base)
-    dirs = mais_recentes_primeiro([d for d in base.iterdir() if (d / "snapshot.json").exists()])
-    if not dirs:
-        raise RuntimeError("nenhum snapshot em %s — rode o hibernate antes" % base)
-    return json.loads((dirs[0] / "snapshot.json").read_text()), dirs[0]
+        try:
+            return json.loads((escolhido / "snapshot.json").read_text()), escolhido
+        except (OSError, ValueError) as e:
+            raise RuntimeError("nao li o snapshot em %s (%s)" % (escolhido, e))
+    for dados, d in _aplicados(base):
+        return dados, d
+    raise RuntimeError("nenhum snapshot de --apply em %s — rode o hibernate --apply antes "
+                       "(snapshot de dry-run ou da 0.2.0 so' com --snapshot <dir>)" % base)
+
+
+def ultimo_apply(base: Path) -> Optional[dict]:
+    for dados, _ in _aplicados(base):
+        return dados
+    return None
 
 
 def idade_em_dias(dados: dict, agora: float) -> float:

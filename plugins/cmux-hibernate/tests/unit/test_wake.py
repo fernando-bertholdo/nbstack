@@ -23,7 +23,7 @@ class TestWake(FusoFixo, unittest.TestCase):
             d = base / "2026-10-03T22-30-00Z"
             d.mkdir()
             (d / "snapshot.json").write_text(json.dumps(
-                {"gerado_em": "2026-10-03T22:30:00Z", "janelas": []}))
+                {"gerado_em": "2026-10-03T22:30:00Z", "tipo": "apply", "janelas": []}))
             saida = io.StringIO()
             with mock.patch.object(wake, "BASE_ESTADO", base), \
                     mock.patch.object(wake, "ler_estado", lambda: Estado(janelas=[])), \

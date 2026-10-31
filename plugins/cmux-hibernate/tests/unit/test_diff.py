@@ -11,7 +11,7 @@ sys.path.insert(0, str(RAIZ / "scripts"))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from fuso import FusoFixo  # noqa: E402
 from lib.cmux_state import Aba, Estado, Janela, Pane, Workspace  # noqa: E402
-from lib.diff import carregar_snapshot, comparar, idade_em_dias  # noqa: E402
+from lib.diff import carregar_snapshot, comparar, idade_em_dias, ultimo_apply  # noqa: E402
 
 SNAP = {
     "gerado_em": "2026-08-04T14:22:31",
@@ -76,18 +76,41 @@ class TestIdade(FusoFixo, unittest.TestCase):
 
 
 class TestCarregarSnapshot(FusoFixo, unittest.TestCase):
-    def _grava(self, base, nome, gerado_em):
+    def _grava(self, base, nome, gerado_em, tipo="apply"):
         d = base / nome
         d.mkdir()
-        (d / "snapshot.json").write_text(json.dumps({"gerado_em": gerado_em}))
+        dados = {"gerado_em": gerado_em}
+        if tipo:
+            dados["tipo"] = tipo
+        (d / "snapshot.json").write_text(json.dumps(dados))
+        return d
 
     def test_le_snapshot_gravado_antes_do_conserto(self):
+        """Ate' a 0.2.0 o snapshot nao dizia o tipo: so' entra pedido pelo nome."""
         with tempfile.TemporaryDirectory() as tmp:
             base = pathlib.Path(tmp)
-            self._grava(base, "2026-08-04T14-22-31", "2026-08-04T14:22:31")
-            dados, origem = carregar_snapshot(base)
+            d = self._grava(base, "2026-08-04T14-22-31", "2026-08-04T14:22:31", tipo=None)
+            dados, origem = carregar_snapshot(base, d)
             self.assertEqual(origem.name, "2026-08-04T14-22-31")
             self.assertGreater(idade_em_dias(dados, time.time()), 0)
+            with self.assertRaises(RuntimeError) as ctx:
+                carregar_snapshot(base)
+            self.assertIn("--apply", str(ctx.exception))
+
+    def test_escolhe_o_ultimo_apply_e_ignora_dry_run(self):
+        """F5: o mais recente pode ser um dry-run de desenvolvimento de outra aba."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            self._grava(base, "2026-10-31T05-36-55Z", "2026-10-31T05:36:55Z")
+            self._grava(base, "2026-10-31T06-00-00Z", "2026-10-31T06:00:00Z", tipo="dry-run")
+            self._grava(base, "ultimo-dry-run", "2026-10-31T07:00:00Z", tipo="dry-run")
+            _, origem = carregar_snapshot(base)
+            self.assertEqual(origem.name, "2026-10-31T05-36-55Z")
+            self.assertEqual(ultimo_apply(base)["gerado_em"], "2026-10-31T05:36:55Z")
+
+    def test_ultimo_apply_sem_nada_e_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIsNone(ultimo_apply(pathlib.Path(tmp) / "nao-existe"))
 
     def test_escolhe_o_mais_recente_entre_os_dois_formatos(self):
         """A ordem e' a do instante, nao a do nome: hora local e UTC nao se comparam como texto."""
