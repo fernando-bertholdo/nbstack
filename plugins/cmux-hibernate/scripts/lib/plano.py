@@ -64,6 +64,13 @@ def _resultado(item: dict, metodo: Optional[str], erro: Optional[str]) -> None:
                          "erro": erro}
 
 
+def marcar_erro(plano: List[dict], motivo: str) -> None:
+    """Depois de uma excecao no --apply: todo alvo sem resultado fica nao verificado."""
+    for item in plano:
+        if item["acao"] != CONTROLE and item["resultado"] is None:
+            _resultado(item, None, motivo)
+
+
 def _painel(item: dict, paineis: Dict[str, Painel]) -> Painel:
     p = paineis.get(item["surface"].upper())
     return Painel(surface=item["surface"], janela=p.janela if p else item["janela"],
@@ -99,11 +106,24 @@ def executar(plano: List[dict], paineis: Dict[str, Painel], confere=processo_con
         else:
             sairam.append(item)
     limpar = [i for i in plano if i["acao"] == LIMPAR]
+    falha_rpc = {}
+
+    def pedir_limpeza(item):
+        try:
+            limpar_fn(_painel(item, paineis))
+        except Exception as e:  # cmux fora do PATH, timeout: quem julga e' a conferencia
+            falha_rpc[item["surface"]] = "rpc falhou (%s)" % e
+
+    def erro(item, res):
+        motivo = res.get(item["surface"].upper())
+        extra = falha_rpc.get(item["surface"])
+        return "%s; %s" % (motivo, extra) if motivo and extra else motivo
+
     for item in limpar:
-        limpar_fn(_painel(item, paineis))
+        pedir_limpeza(item)
     res = conferir_fn([i["surface"] for i in sairam + limpar], depois_de=inicio)
     for item in limpar:
-        _resultado(item, "rpc", res.get(item["surface"].upper()))
+        _resultado(item, "rpc", erro(item, res))
     reserva = [i for i in sairam if res.get(i["surface"].upper())]
     for item in sairam:
         if item not in reserva:
@@ -111,10 +131,10 @@ def executar(plano: List[dict], paineis: Dict[str, Painel], confere=processo_con
     if reserva:
         marco = agora()
         for item in reserva:
-            limpar_fn(_painel(item, paineis))
+            pedir_limpeza(item)
         res2 = conferir_fn([i["surface"] for i in reserva], depois_de=marco)
         for item in reserva:
-            _resultado(item, "sigterm+rpc", res2.get(item["surface"].upper()))
+            _resultado(item, "sigterm+rpc", erro(item, res2))
     for item in plano:
         if item["acao"] == DORMINDO:
             _resultado(item, None, None)

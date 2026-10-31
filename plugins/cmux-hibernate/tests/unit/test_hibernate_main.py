@@ -155,6 +155,20 @@ class TestApply(Base):
         self.assertTrue({sessao(n) for n in (2, 3)} <= sessoes, sessoes)
 
 
+class TestErro(Base):
+    def test_erro_no_meio_do_apply_grava_o_snapshot_e_nao_libera(self):
+        """O que ja foi encerrado fica registrado mesmo que o resto quebre."""
+        boom = mock.Mock(side_effect=ValueError("quebrou"))
+        with mock.patch.object(hibernate, "executar", boom):
+            rc = self.rodar("--apply")
+        self.assertEqual(rc, 1)
+        self.assertNotIn("Pode dar Cmd+Q", self.saida)
+        self.assertIn("quebrou", self.erro)
+        p = self.plano()
+        self.assertFalse(p[uuid(2)]["resultado"]["verificado"])
+        self.assertIn("quebrou", p[uuid(2)]["resultado"]["erro"])
+
+
 class TestEscopo(Base):
     def test_all_inclui_o_controle(self):
         rc = self.rodar("--apply", "--all")

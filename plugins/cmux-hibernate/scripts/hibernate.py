@@ -34,7 +34,7 @@ from lib.diff import ultimo_para_inventario  # noqa: E402
 from lib.encerrar import ancestrais, motivo_ocupada  # noqa: E402
 from lib.inventario import completar_inventario  # noqa: E402
 from lib.plano import (  # noqa: E402
-    CONTROLE, DORMINDO, ENCERRAR, LIMPAR, PULAR, executar, para_snapshot, planejar)
+    CONTROLE, DORMINDO, ENCERRAR, LIMPAR, PULAR, executar, marcar_erro, para_snapshot, planejar)
 from lib.snapshot import (  # noqa: E402
     BASE_ESTADO, aplicar_retencao, gravar, gravar_dry_run, serializar)
 
@@ -139,7 +139,11 @@ def main() -> int:
             return 1
         return 0
 
-    executar(plano, paineis, ocupada_fn=_ocupada_agora(hooks))
+    try:
+        executar(plano, paineis, ocupada_fn=_ocupada_agora(hooks))
+    except Exception as e:  # o que ja foi encerrado tem de chegar ao snapshot
+        print("erro no --apply: %s: %s" % (type(e).__name__, e), file=sys.stderr)
+        marcar_erro(plano, "erro no --apply antes da conferencia: %s" % e)
     dados = serializar(estado, controle_snap, args.stale_days, tipo="apply",
                        plano=_limpo(plano), escopo=escopo_nome, versao_cmux=versao_do_cmux())
     destino = gravar(dados, args.estado)

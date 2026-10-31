@@ -146,6 +146,18 @@ class TestExecutar(unittest.TestCase):
         self.encerrar.assert_called_once_with([])
         self.assertIn("mudou", r["OCIOSA"]["resultado"]["erro"])
 
+    def test_rpc_que_explode_nao_derruba_o_apply(self):
+        """Sem cmux no PATH ou com timeout, o rpc levanta; a conferencia decide o resultado."""
+        plano = planejar(padrao(), controle="CTRL", agora=1000.0, hooks={}, protegidos={"600"})
+        limpar = mock.Mock(side_effect=RuntimeError("cmux nao encontrado"))
+        executar(plano, {}, confere=lambda pid, s: True, encerrar_fn=lambda pids: set(),
+                 limpar_fn=limpar, conferir_fn=lambda ss, depois_de: {
+                     s: "continua armada (agent)" for s in ss},
+                 agora=lambda: 1000.0)
+        r = {p["surface"]: p["resultado"] for p in plano}
+        self.assertFalse(r["ARMADA"]["verificado"])
+        self.assertIn("cmux nao encontrado", r["ARMADA"]["erro"])
+
     def test_sessao_que_entrou_em_turno_e_pulada_na_hora(self):
         r = self.rodar([{"ARMADA": None}], ocupada="transcript escrito ha 2 s")
         self.assertEqual(r["OCIOSA"]["acao"], PULAR)
