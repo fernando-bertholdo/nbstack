@@ -164,6 +164,52 @@ def surfaces_com_processo(saida_ps: str) -> Dict[str, str]:
     return vivos
 
 
+def _e_claude_de_aba(linha: str) -> bool:
+    return ("/.local/bin/claude" in linha and " daemon run" not in linha
+            and "bg-pty-host" not in linha and "bg-spare" not in linha)
+
+
+def claudes_por_surface(saida_ps: str) -> Dict[str, List[str]]:
+    """surface_uuid -> todos os pids de claude na aba, na ordem do ps."""
+    por: Dict[str, List[str]] = {}
+    for linha in saida_ps.splitlines():
+        m = _RE_SURFACE.search(linha)
+        if m and _e_claude_de_aba(linha):
+            por.setdefault(m.group(1), []).append(linha.split()[0])
+    return por
+
+
+def _ppid(pid: str) -> Optional[str]:
+    r = subprocess.run(["ps", "-o", "ppid=", "-p", pid], capture_output=True, text=True)
+    return r.stdout.strip() or None
+
+
+def so_principais(saida_ps: str, ppid=None) -> str:
+    """Tira do `ps` o claude aninhado (rodado por uma ferramenta de outro claude na mesma
+    aba, que herda o CMUX_SURFACE_ID): fica o que nao descende de outro claude da aba.
+    Sem como ler os pais, fica o primeiro."""
+    ppid = ppid or _ppid
+    descartar = set()
+    for pids in claudes_por_surface(saida_ps).values():
+        if len(pids) < 2:
+            continue
+        conjunto, principais = set(pids), []
+        for pid in pids:
+            atual, vistos, aninhado = ppid(pid), set(), False
+            while atual and atual not in ("0", "1") and atual not in vistos:
+                if atual in conjunto:
+                    aninhado = True
+                    break
+                vistos.add(atual)
+                atual = ppid(atual)
+            if not aninhado:
+                principais.append(pid)
+        fica = (principais or pids)[0]
+        descartar |= conjunto - {fica}
+    return "\n".join(l for l in saida_ps.splitlines()
+                     if not l.split() or l.split()[0] not in descartar)
+
+
 def binding_de(janela: str, workspace: str, surface: str) -> Optional[dict]:
     """Le o resumeBinding de uma aba. Intencao, nao fato — usar so' como complemento."""
     try:
@@ -379,7 +425,7 @@ def _ps_eww() -> str:
 def ler_estado(raiz_projetos: Path = RAIZ_PROJETOS) -> Estado:
     """Estado real agora: estrutura do cmux + vinculos vindos dos processos."""
     estado = Estado(janelas=parse_tree(rodar_cmux("tree", "--all", "--id-format", "both")))
-    saida_ps = _ps_eww()
+    saida_ps = so_principais(_ps_eww())
     mapa = parse_processos(saida_ps)
 
     cwds: Dict[str, str] = {}

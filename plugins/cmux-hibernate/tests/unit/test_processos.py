@@ -73,6 +73,34 @@ class TestProcessos(unittest.TestCase):
 
 
 
+class TestPrincipal(unittest.TestCase):
+    """Varios claude na mesma aba: o principal e' o que nao descende de outro claude."""
+
+    A = "AAAAAAAA-1111-2222-3333-444444444444"
+    LINHAS = "\n".join([
+        "10 /Users/x/.local/bin/claude --resume aaaaaaaa-1111-2222-3333-444444444444 "
+        "CMUX_SURFACE_ID=%s" % A,
+        "30 /Users/x/.local/bin/claude -p resumo CMUX_SURFACE_ID=%s" % A,
+        "40 /Users/x/.local/bin/claude --resume bbbbbbbb-1111-2222-3333-444444444444 "
+        "CMUX_SURFACE_ID=BBBBBBBB-1111-2222-3333-444444444444"])
+    PAIS = {"30": "20", "20": "10", "10": "5", "5": "1", "40": "6", "6": "1"}
+
+    def test_lista_todos_os_claude_por_aba(self):
+        from lib.cmux_state import claudes_por_surface
+        self.assertEqual(claudes_por_surface(self.LINHAS)[self.A], ["10", "30"])
+
+    def test_filho_aninhado_sai_e_o_principal_fica(self):
+        from lib.cmux_state import so_principais
+        saida = so_principais(self.LINHAS, ppid=self.PAIS.get)
+        self.assertEqual([l.split()[0] for l in saida.splitlines()], ["10", "40"])
+        self.assertEqual(parse_processos(saida)[self.A]["pid"], "10")
+
+    def test_sem_como_ler_os_pais_fica_o_primeiro(self):
+        from lib.cmux_state import so_principais
+        saida = so_principais(self.LINHAS, ppid=lambda p: None)
+        self.assertEqual([l.split()[0] for l in saida.splitlines()], ["10", "40"])
+
+
 class TestInicios(FusoFixo, unittest.TestCase):
     """`ps -o lstart` sai na hora local do host: o fuso fixo confere a conta."""
 
